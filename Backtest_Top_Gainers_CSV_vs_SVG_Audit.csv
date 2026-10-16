@@ -1,0 +1,180 @@
+Symbol,CSV_Occurrences,SVG_Occurrences,Occurrence_Count_Match,CSV_Dates,SVG_Timeline_Dates,SVG_Dates_Match_CSV_Plus_1_Day,Validation
+ATHERENERG,15,15,True,08-Apr-2026 | 09-Apr-2026 | 12-Apr-2026 | 26-Apr-2026 | 10-May-2026 | 02-Jun-2026 | 28-Jun-2026 | 29-Jun-2026 | 07-Jul-2026 | 14-Jul-2026 | 03-Aug-2026 | 27-Aug-2026 | 30-Aug-2026 | 17-Sep-2026 | 11-Oct-2026,09-Apr-2026 | 10-Apr-2026 | 13-Apr-2026 | 27-Apr-2026 | 11-May-2026 | 03-Jun-2026 | 29-Jun-2026 | 30-Jun-2026 | 08-Jul-2026 | 15-Jul-2026 | 04-Aug-2026 | 28-Aug-2026 | 31-Aug-2026 | 18-Sep-2026 | 12-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+KALYANKJIL,12,12,True,24-Mar-2026 | 05-Apr-2026 | 07-Apr-2026 | 14-Jun-2026 | 07-Jul-2026 | 08-Jul-2026 | 09-Jul-2026 | 12-Jul-2026 | 16-Jul-2026 | 27-Jul-2026 | 05-Aug-2026 | 04-Oct-2026,25-Mar-2026 | 06-Apr-2026 | 08-Apr-2026 | 15-Jun-2026 | 08-Jul-2026 | 09-Jul-2026 | 10-Jul-2026 | 13-Jul-2026 | 17-Jul-2026 | 28-Jul-2026 | 06-Aug-2026 | 05-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+ANGELONE,8,8,True,17-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 08-Apr-2026 | 14-Apr-2026 | 16-Apr-2026 | 18-May-2026 | 24-Aug-2026,18-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 09-Apr-2026 | 15-Apr-2026 | 17-Apr-2026 | 19-May-2026 | 25-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+COFORGE,8,8,True,17-Mar-2026 | 01-Apr-2026 | 05-May-2026 | 07-May-2026 | 17-May-2026 | 01-Jul-2026 | 27-Jul-2026 | 27-Aug-2026,18-Mar-2026 | 02-Apr-2026 | 06-May-2026 | 08-May-2026 | 18-May-2026 | 02-Jul-2026 | 28-Jul-2026 | 28-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+FORCEMOT,8,8,True,09-Mar-2026 | 23-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 05-May-2026 | 03-Jun-2026 | 01-Jul-2026 | 11-Aug-2026,10-Mar-2026 | 24-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 06-May-2026 | 04-Jun-2026 | 02-Jul-2026 | 12-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+MOTILALOFS,8,8,True,24-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 08-Jun-2026 | 11-Jun-2026 | 14-Jun-2026 | 16-Aug-2026 | 05-Oct-2026,25-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 09-Jun-2026 | 12-Jun-2026 | 15-Jun-2026 | 17-Aug-2026 | 06-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+DIXON,7,7,True,09-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 14-Apr-2026 | 12-May-2026 | 05-Jul-2026 | 15-Jul-2026,10-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 15-Apr-2026 | 13-May-2026 | 06-Jul-2026 | 16-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+GVT&D,7,7,True,24-Mar-2026 | 22-Apr-2026 | 19-May-2026 | 26-May-2026 | 16-Jun-2026 | 18-Jun-2026 | 07-Sep-2026,25-Mar-2026 | 23-Apr-2026 | 20-May-2026 | 27-May-2026 | 17-Jun-2026 | 19-Jun-2026 | 08-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+INOXWIND,7,7,True,24-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 14-Apr-2026 | 11-Jun-2026 | 16-Aug-2026 | 08-Oct-2026,25-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 15-Apr-2026 | 12-Jun-2026 | 17-Aug-2026 | 09-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+PAYTM,7,7,True,17-Mar-2026 | 07-Apr-2026 | 06-May-2026 | 30-Jun-2026 | 09-Jul-2026 | 09-Aug-2026 | 24-Aug-2026,18-Mar-2026 | 08-Apr-2026 | 07-May-2026 | 01-Jul-2026 | 10-Jul-2026 | 10-Aug-2026 | 25-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+ADANIENSOL,6,6,True,05-Apr-2026 | 07-Apr-2026 | 09-Apr-2026 | 21-Apr-2026 | 26-May-2026 | 13-Oct-2026,06-Apr-2026 | 08-Apr-2026 | 10-Apr-2026 | 22-Apr-2026 | 27-May-2026 | 14-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+HINDPETRO,6,6,True,23-Mar-2026 | 07-Apr-2026 | 05-May-2026 | 12-May-2026 | 11-Jun-2026 | 14-Oct-2026,24-Mar-2026 | 08-Apr-2026 | 06-May-2026 | 13-May-2026 | 12-Jun-2026 | 15-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+IDEA,6,6,True,07-Apr-2026 | 10-May-2026 | 12-May-2026 | 18-May-2026 | 11-Jun-2026 | 24-Aug-2026,08-Apr-2026 | 11-May-2026 | 13-May-2026 | 19-May-2026 | 12-Jun-2026 | 25-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+KAYNES,6,6,True,24-Mar-2026 | 20-May-2026 | 02-Jul-2026 | 08-Jul-2026 | 28-Jul-2026 | 30-Jul-2026,25-Mar-2026 | 21-May-2026 | 03-Jul-2026 | 09-Jul-2026 | 29-Jul-2026 | 31-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+KPITTECH,6,6,True,17-Mar-2026 | 31-Mar-2026 | 18-May-2026 | 23-Jul-2026 | 28-Jul-2026 | 12-Oct-2026,18-Mar-2026 | 01-Apr-2026 | 19-May-2026 | 24-Jul-2026 | 29-Jul-2026 | 13-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+MAHABANK,6,6,True,31-Mar-2026 | 07-Apr-2026 | 20-Apr-2026 | 08-Jun-2026 | 11-Jun-2026 | 28-Jun-2026,01-Apr-2026 | 08-Apr-2026 | 21-Apr-2026 | 09-Jun-2026 | 12-Jun-2026 | 29-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+NAM-INDIA,6,6,True,09-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 09-Apr-2026 | 16-Apr-2026 | 20-Apr-2026,10-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 10-Apr-2026 | 17-Apr-2026 | 21-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+SUZLON,6,6,True,07-Apr-2026 | 14-Apr-2026 | 16-Apr-2026 | 26-Apr-2026 | 26-May-2026 | 11-Oct-2026,08-Apr-2026 | 15-Apr-2026 | 17-Apr-2026 | 27-Apr-2026 | 27-May-2026 | 12-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+UJJIVANSFB,6,6,True,09-Mar-2026 | 17-Mar-2026 | 24-Mar-2026 | 31-Mar-2026 | 03-May-2026 | 22-Jul-2026,10-Mar-2026 | 18-Mar-2026 | 25-Mar-2026 | 01-Apr-2026 | 04-May-2026 | 23-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+ADANIGREEN,5,5,True,31-Mar-2026 | 05-Apr-2026 | 07-Apr-2026 | 03-May-2026 | 04-Jun-2026,01-Apr-2026 | 06-Apr-2026 | 08-Apr-2026 | 04-May-2026 | 05-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+ADANIPOWER,5,5,True,11-Mar-2026 | 15-Mar-2026 | 15-Apr-2026 | 21-Apr-2026 | 24-May-2026,12-Mar-2026 | 16-Mar-2026 | 16-Apr-2026 | 22-Apr-2026 | 25-May-2026,True,Counts match; SVG timeline is shifted +1 day
+BANDHANBNK,5,5,True,07-Apr-2026 | 28-Apr-2026 | 11-Jun-2026 | 09-Jul-2026 | 12-Oct-2026,08-Apr-2026 | 29-Apr-2026 | 12-Jun-2026 | 10-Jul-2026 | 13-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+PGEL,5,5,True,07-Apr-2026 | 14-Apr-2026 | 11-Jun-2026 | 15-Jun-2026 | 05-Oct-2026,08-Apr-2026 | 15-Apr-2026 | 12-Jun-2026 | 16-Jun-2026 | 06-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+SAIL,5,5,True,16-Mar-2026 | 12-May-2026 | 03-Aug-2026 | 25-Aug-2026 | 22-Sep-2026,17-Mar-2026 | 13-May-2026 | 04-Aug-2026 | 26-Aug-2026 | 23-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+SHRIRAMFIN,5,5,True,09-Mar-2026 | 24-Mar-2026 | 07-Apr-2026 | 11-Jun-2026 | 12-Oct-2026,10-Mar-2026 | 25-Mar-2026 | 08-Apr-2026 | 12-Jun-2026 | 13-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+SOLARINDS,5,5,True,31-Mar-2026 | 13-May-2026 | 29-Jun-2026 | 12-Aug-2026 | 29-Sep-2026,01-Apr-2026 | 14-May-2026 | 30-Jun-2026 | 13-Aug-2026 | 30-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+TIINDIA,5,5,True,07-Apr-2026 | 26-May-2026 | 11-Jun-2026 | 17-Aug-2026 | 05-Oct-2026,08-Apr-2026 | 27-May-2026 | 12-Jun-2026 | 18-Aug-2026 | 06-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+TRENT,5,5,True,31-Mar-2026 | 05-Apr-2026 | 14-Jun-2026 | 16-Jun-2026 | 05-Oct-2026,01-Apr-2026 | 06-Apr-2026 | 15-Jun-2026 | 17-Jun-2026 | 06-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+ADANIENT,4,4,True,07-Apr-2026 | 13-May-2026 | 08-Sep-2026 | 28-Sep-2026,08-Apr-2026 | 14-May-2026 | 09-Sep-2026 | 29-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+AMBER,4,4,True,07-Apr-2026 | 09-Apr-2026 | 05-May-2026 | 20-May-2026,08-Apr-2026 | 10-Apr-2026 | 06-May-2026 | 21-May-2026,True,Counts match; SVG timeline is shifted +1 day
+ASHOKLEY,4,4,True,07-Apr-2026 | 11-Jun-2026 | 30-Jul-2026 | 02-Aug-2026,08-Apr-2026 | 12-Jun-2026 | 31-Jul-2026 | 03-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+BHEL,4,4,True,15-Apr-2026 | 03-May-2026 | 06-May-2026 | 05-Oct-2026,16-Apr-2026 | 04-May-2026 | 07-May-2026 | 06-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+BPCL,4,4,True,07-Apr-2026 | 14-Apr-2026 | 05-May-2026 | 11-Jun-2026,08-Apr-2026 | 15-Apr-2026 | 06-May-2026 | 12-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+ENRIN,4,4,True,19-May-2026 | 26-May-2026 | 11-Jun-2026 | 06-Aug-2026,20-May-2026 | 27-May-2026 | 12-Jun-2026 | 07-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+ETERNAL,4,4,True,16-Mar-2026 | 07-Apr-2026 | 30-Jun-2026 | 26-Jul-2026,17-Mar-2026 | 08-Apr-2026 | 01-Jul-2026 | 27-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+GMRAIRPORT,4,4,True,23-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 08-Oct-2026,24-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 09-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+HDFCAMC,4,4,True,31-Mar-2026 | 07-Apr-2026 | 14-Jun-2026 | 14-Oct-2026,01-Apr-2026 | 08-Apr-2026 | 15-Jun-2026 | 15-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+INDIGO,4,4,True,23-Mar-2026 | 31-Mar-2026 | 07-Apr-2026 | 05-May-2026,24-Mar-2026 | 01-Apr-2026 | 08-Apr-2026 | 06-May-2026,True,Counts match; SVG timeline is shifted +1 day
+LODHA,4,4,True,07-Apr-2026 | 02-Jul-2026 | 08-Jul-2026 | 27-Jul-2026,08-Apr-2026 | 03-Jul-2026 | 09-Jul-2026 | 28-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+LTF,4,4,True,05-Apr-2026 | 07-Apr-2026 | 11-Jun-2026 | 14-Jun-2026,06-Apr-2026 | 08-Apr-2026 | 12-Jun-2026 | 15-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+MANAPPURAM,4,4,True,17-Mar-2026 | 07-Apr-2026 | 12-May-2026 | 05-Jul-2026,18-Mar-2026 | 08-Apr-2026 | 13-May-2026 | 06-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+MAZDOCK,4,4,True,04-Mar-2026 | 05-Mar-2026 | 31-Mar-2026 | 05-Aug-2026,05-Mar-2026 | 06-Mar-2026 | 01-Apr-2026 | 06-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+MOTHERSON,4,4,True,07-Apr-2026 | 21-Apr-2026 | 05-May-2026 | 06-Aug-2026,08-Apr-2026 | 22-Apr-2026 | 06-May-2026 | 07-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+MUTHOOTFIN,4,4,True,24-Mar-2026 | 07-Apr-2026 | 11-Jun-2026 | 23-Aug-2026,25-Mar-2026 | 08-Apr-2026 | 12-Jun-2026 | 24-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+NATIONALUM,4,4,True,04-Mar-2026 | 16-Mar-2026 | 02-Aug-2026 | 11-Aug-2026,05-Mar-2026 | 17-Mar-2026 | 03-Aug-2026 | 12-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+OFSS,4,4,True,26-Mar-2026 | 14-Apr-2026 | 22-Apr-2026 | 23-Jun-2026,27-Mar-2026 | 15-Apr-2026 | 23-Apr-2026 | 24-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+RVNL,4,4,True,31-Mar-2026 | 07-Apr-2026 | 14-Apr-2026 | 17-Sep-2026,01-Apr-2026 | 08-Apr-2026 | 15-Apr-2026 | 18-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+SWIGGY,4,4,True,26-May-2026 | 06-Jul-2026 | 08-Jul-2026 | 28-Jul-2026,27-May-2026 | 07-Jul-2026 | 09-Jul-2026 | 29-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+YESBANK,4,4,True,07-Apr-2026 | 05-May-2026 | 16-Jun-2026 | 10-Sep-2026,08-Apr-2026 | 06-May-2026 | 17-Jun-2026 | 11-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+ABCAPITAL,3,3,True,07-Apr-2026 | 11-Jun-2026 | 17-Sep-2026,08-Apr-2026 | 12-Jun-2026 | 18-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+ADANIPORTS,3,3,True,31-Mar-2026 | 07-Apr-2026 | 03-May-2026,01-Apr-2026 | 08-Apr-2026 | 04-May-2026,True,Counts match; SVG timeline is shifted +1 day
+APLAPOLLO,3,3,True,07-Apr-2026 | 02-Aug-2026 | 17-Sep-2026,08-Apr-2026 | 03-Aug-2026 | 18-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+BAJFINANCE,3,3,True,07-Apr-2026 | 11-Jun-2026 | 30-Jul-2026,08-Apr-2026 | 12-Jun-2026 | 31-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+BDL,3,3,True,05-Mar-2026 | 31-Mar-2026 | 16-Jun-2026,06-Mar-2026 | 01-Apr-2026 | 17-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+BLUESTARCO,3,3,True,04-Mar-2026 | 07-Apr-2026 | 26-Apr-2026,05-Mar-2026 | 08-Apr-2026 | 27-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+BSE,3,3,True,04-Mar-2026 | 31-Mar-2026 | 07-Apr-2026,05-Mar-2026 | 01-Apr-2026 | 08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+CDSL,3,3,True,31-Mar-2026 | 07-Apr-2026 | 09-Jul-2026,01-Apr-2026 | 08-Apr-2026 | 10-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+CHOLAFIN,3,3,True,07-Apr-2026 | 11-Jun-2026 | 14-Jun-2026,08-Apr-2026 | 12-Jun-2026 | 15-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+GODFRYPHLP,3,3,True,24-Mar-2026 | 28-Apr-2026 | 02-Aug-2026,25-Mar-2026 | 29-Apr-2026 | 03-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+GODREJPROP,3,3,True,05-Apr-2026 | 07-Apr-2026 | 09-Jul-2026,06-Apr-2026 | 08-Apr-2026 | 10-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+GRASIM,3,3,True,07-Apr-2026 | 20-May-2026 | 02-Aug-2026,08-Apr-2026 | 21-May-2026 | 03-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+HAL,3,3,True,31-Mar-2026 | 03-May-2026 | 05-Aug-2026,01-Apr-2026 | 04-May-2026 | 06-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+HINDZINC,3,3,True,26-Apr-2026 | 04-Aug-2026 | 25-Aug-2026,27-Apr-2026 | 05-Aug-2026 | 26-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+INDIANB,3,3,True,31-Mar-2026 | 07-Apr-2026 | 09-Jul-2026,01-Apr-2026 | 08-Apr-2026 | 10-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+JSWENERGY,3,3,True,11-Mar-2026 | 26-Apr-2026 | 13-Oct-2026,12-Mar-2026 | 27-Apr-2026 | 14-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+MANKIND,3,3,True,25-Feb-2026 | 21-Jun-2026 | 20-Sep-2026,26-Feb-2026 | 22-Jun-2026 | 21-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+NBCC,3,3,True,17-Mar-2026 | 31-Mar-2026 | 07-Apr-2026,18-Mar-2026 | 01-Apr-2026 | 08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+PERSISTENT,3,3,True,17-May-2026 | 01-Jul-2026 | 08-Oct-2026,18-May-2026 | 02-Jul-2026 | 09-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+POLICYBZR,3,3,True,10-Aug-2026 | 15-Sep-2026 | 05-Oct-2026,11-Aug-2026 | 16-Sep-2026 | 06-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+POWERINDIA,3,3,True,08-Apr-2026 | 19-May-2026 | 09-Aug-2026,09-Apr-2026 | 20-May-2026 | 10-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+PREMIERENE,3,3,True,10-Mar-2026 | 17-Mar-2026 | 31-Mar-2026,11-Mar-2026 | 18-Mar-2026 | 01-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+RADICO,3,3,True,05-Mar-2026 | 07-Apr-2026 | 05-Jul-2026,06-Mar-2026 | 08-Apr-2026 | 06-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+RBLBANK,3,3,True,05-Apr-2026 | 28-Apr-2026 | 21-Sep-2026,06-Apr-2026 | 29-Apr-2026 | 22-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+SAGILITY,3,3,True,03-Mar-2026 | 24-Mar-2026 | 26-Jul-2026,04-Mar-2026 | 25-Mar-2026 | 27-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+SIEMENS,3,3,True,09-Apr-2026 | 14-Apr-2026 | 26-May-2026,10-Apr-2026 | 15-Apr-2026 | 27-May-2026,True,Counts match; SVG timeline is shifted +1 day
+SONACOMS,3,3,True,09-Apr-2026 | 01-Jul-2026 | 29-Jul-2026,10-Apr-2026 | 02-Jul-2026 | 30-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+TATAELXSI,3,3,True,01-Jun-2026 | 12-Oct-2026 | 13-Oct-2026,02-Jun-2026 | 13-Oct-2026 | 14-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+TCS,3,3,True,01-Jun-2026 | 12-Jul-2026 | 12-Oct-2026,02-Jun-2026 | 13-Jul-2026 | 13-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+TMPV,3,3,True,07-Apr-2026 | 05-May-2026 | 14-May-2026,08-Apr-2026 | 06-May-2026 | 15-May-2026,True,Counts match; SVG timeline is shifted +1 day
+UNOMINDA,3,3,True,07-Apr-2026 | 14-Jun-2026 | 17-Sep-2026,08-Apr-2026 | 15-Jun-2026 | 18-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+VMM,3,3,True,23-Mar-2026 | 05-Apr-2026 | 23-Aug-2026,24-Mar-2026 | 06-Apr-2026 | 24-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+ABB,2,2,True,26-May-2026 | 15-Jul-2026,27-May-2026 | 16-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+ASTRAL,2,2,True,10-Mar-2026 | 12-Aug-2026,11-Mar-2026 | 13-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+AUBANK,2,2,True,07-Apr-2026 | 11-Jun-2026,08-Apr-2026 | 12-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+BAJAJFINSV,2,2,True,07-Apr-2026 | 30-Jul-2026,08-Apr-2026 | 31-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+BANKBARODA,2,2,True,07-Apr-2026 | 08-Jun-2026,08-Apr-2026 | 09-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+BANKINDIA,2,2,True,07-Apr-2026 | 08-Jun-2026,08-Apr-2026 | 09-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+BHARATFORG,2,2,True,07-Apr-2026 | 06-May-2026,08-Apr-2026 | 07-May-2026,True,Counts match; SVG timeline is shifted +1 day
+BOSCHLTD,2,2,True,31-Mar-2026 | 07-Apr-2026,01-Apr-2026 | 08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+CGPOWER,2,2,True,26-May-2026 | 03-Aug-2026,27-May-2026 | 04-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+CIPLA,2,2,True,22-Apr-2026 | 13-May-2026,23-Apr-2026 | 14-May-2026,True,Counts match; SVG timeline is shifted +1 day
+COCHINSHIP,2,2,True,31-Mar-2026 | 29-Jun-2026,01-Apr-2026 | 30-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+CONCOR,2,2,True,13-Jul-2026 | 26-Jul-2026,14-Jul-2026 | 27-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+CROMPTON,2,2,True,15-Apr-2026 | 28-Jul-2026,16-Apr-2026 | 29-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+DELHIVERY,2,2,True,17-Mar-2026 | 30-Jun-2026,18-Mar-2026 | 01-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+EICHERMOT,2,2,True,07-Apr-2026 | 24-May-2026,08-Apr-2026 | 25-May-2026,True,Counts match; SVG timeline is shifted +1 day
+HCLTECH,2,2,True,02-Jul-2026 | 12-Oct-2026,03-Jul-2026 | 13-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+IDFCFIRSTB,2,2,True,07-Apr-2026 | 26-Jul-2026,08-Apr-2026 | 27-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+INDUSINDBK,2,2,True,07-Apr-2026 | 26-Apr-2026,08-Apr-2026 | 27-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+INFY,2,2,True,01-Jun-2026 | 01-Jul-2026,02-Jun-2026 | 02-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+IREDA,2,2,True,07-Apr-2026 | 21-Apr-2026,08-Apr-2026 | 22-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+IRFC,2,2,True,31-Mar-2026 | 07-Apr-2026,01-Apr-2026 | 08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+JUBLFOOD,2,2,True,07-Apr-2026 | 02-Aug-2026,08-Apr-2026 | 03-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+KEI,2,2,True,07-Apr-2026 | 03-Aug-2026,08-Apr-2026 | 04-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+LAURUSLABS,2,2,True,03-May-2026 | 26-Jul-2026,04-May-2026 | 27-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+LT,2,2,True,23-Mar-2026 | 07-Apr-2026,24-Mar-2026 | 08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+MARUTI,2,2,True,07-Apr-2026 | 29-Jun-2026,08-Apr-2026 | 30-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+NAUKRI,2,2,True,06-Jul-2026 | 10-Aug-2026,07-Jul-2026 | 11-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+NYKAA,2,2,True,11-Jun-2026 | 17-Jun-2026,12-Jun-2026 | 18-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+PATANJALI,2,2,True,15-Sep-2026 | 20-Sep-2026,16-Sep-2026 | 21-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+PHOENIXLTD,2,2,True,07-Apr-2026 | 14-Jun-2026,08-Apr-2026 | 15-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+PIIND,2,2,True,24-Mar-2026 | 08-Jun-2026,25-Mar-2026 | 09-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+PNB,2,2,True,07-Apr-2026 | 19-Jul-2026,08-Apr-2026 | 20-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+PNBHOUSING,2,2,True,07-Apr-2026 | 20-Apr-2026,08-Apr-2026 | 21-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+POLYCAB,2,2,True,07-Apr-2026 | 06-May-2026,08-Apr-2026 | 07-May-2026,True,Counts match; SVG timeline is shifted +1 day
+PRESTIGE,2,2,True,07-Apr-2026 | 14-Jun-2026,08-Apr-2026 | 15-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+SRF,2,2,True,11-Mar-2026 | 05-May-2026,12-Mar-2026 | 06-May-2026,True,Counts match; SVG timeline is shifted +1 day
+TORNTPHARM,2,2,True,19-Jul-2026 | 30-Jul-2026,20-Jul-2026 | 31-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+TVSMOTOR,2,2,True,07-Apr-2026 | 20-Jul-2026,08-Apr-2026 | 21-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+UNIONBANK,2,2,True,07-Apr-2026 | 24-May-2026,08-Apr-2026 | 25-May-2026,True,Counts match; SVG timeline is shifted +1 day
+UPL,2,2,True,07-Apr-2026 | 11-Oct-2026,08-Apr-2026 | 12-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+VBL,2,2,True,07-Apr-2026 | 26-Apr-2026,08-Apr-2026 | 27-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+VEDL,2,2,True,03-May-2026 | 12-May-2026,04-May-2026 | 13-May-2026,True,Counts match; SVG timeline is shifted +1 day
+ZYDUSLIFE,2,2,True,13-May-2026 | 10-Aug-2026,14-May-2026 | 11-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+AMBUJACEM,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+AXISBANK,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+BAJAJ-AUTO,1,1,True,21-Jul-2026,22-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+BAJAJHLDNG,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+BANKNIFTY,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+BHARTIARTL,1,1,True,13-May-2026,14-May-2026,True,Counts match; SVG timeline is shifted +1 day
+BIOCON,1,1,True,13-Jul-2026,14-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+CAMS,1,1,True,04-May-2026,05-May-2026,True,Counts match; SVG timeline is shifted +1 day
+CANBK,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+COALINDIA,1,1,True,11-Mar-2026,12-Mar-2026,True,Counts match; SVG timeline is shifted +1 day
+COLPAL,1,1,True,16-Apr-2026,17-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+CUMMINSIND,1,1,True,26-May-2026,27-May-2026,True,Counts match; SVG timeline is shifted +1 day
+DABUR,1,1,True,30-Jun-2026,01-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+DIVISLAB,1,1,True,02-Aug-2026,03-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+DLF,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+DMART,1,1,True,31-Mar-2026,01-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+DRREDDY,1,1,True,22-Apr-2026,23-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+FEDERALBNK,1,1,True,16-Jul-2026,17-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+GAIL,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+GLENMARK,1,1,True,09-Mar-2026,10-Mar-2026,True,Counts match; SVG timeline is shifted +1 day
+HDFCBANK,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+HDFCLIFE,1,1,True,16-Sep-2026,17-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+HYUNDAI,1,1,True,30-Jul-2026,31-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+ICICIBANK,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+ICICIGI,1,1,True,23-Sep-2026,24-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+IEX,1,1,True,05-Apr-2026,06-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+INDHOTEL,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+IOC,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+ITC,1,1,True,04-Oct-2026,05-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+JIOFIN,1,1,True,28-Jul-2026,29-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+KFINTECH,1,1,True,26-Jul-2026,27-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+LICHSGFIN,1,1,True,20-Apr-2026,21-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+LICI,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+LTM,1,1,True,02-Aug-2026,03-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+M&M,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+MAXHEALTH,1,1,True,17-Jun-2026,18-Jun-2026,True,Counts match; SVG timeline is shifted +1 day
+MCX,1,1,True,19-Aug-2026,20-Aug-2026,True,Counts match; SVG timeline is shifted +1 day
+MFSL,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+MPHASIS,1,1,True,01-Jul-2026,02-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+NESTLEIND,1,1,True,20-Apr-2026,21-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+NMDC,1,1,True,12-May-2026,13-May-2026,True,Counts match; SVG timeline is shifted +1 day
+OIL,1,1,True,11-May-2026,12-May-2026,True,Counts match; SVG timeline is shifted +1 day
+ONGC,1,1,True,27-Apr-2026,28-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+PAGEIND,1,1,True,30-Jun-2026,01-Jul-2026,True,Counts match; SVG timeline is shifted +1 day
+PETRONET,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+RECLTD,1,1,True,31-Mar-2026,01-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+SUNPHARMA,1,1,True,26-Apr-2026,27-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+SUPREMEIND,1,1,True,17-Sep-2026,18-Sep-2026,True,Counts match; SVG timeline is shifted +1 day
+TATACONSUM,1,1,True,10-May-2026,11-May-2026,True,Counts match; SVG timeline is shifted +1 day
+TECHM,1,1,True,15-Oct-2026,16-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
+TITAN,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+ULTRACEMCO,1,1,True,07-Apr-2026,08-Apr-2026,True,Counts match; SVG timeline is shifted +1 day
+VOLTAS,1,1,True,24-Mar-2026,25-Mar-2026,True,Counts match; SVG timeline is shifted +1 day
+WAAREEENER,1,1,True,17-Mar-2026,18-Mar-2026,True,Counts match; SVG timeline is shifted +1 day
+WIPRO,1,1,True,15-Oct-2026,16-Oct-2026,True,Counts match; SVG timeline is shifted +1 day
