@@ -364,6 +364,7 @@ def _set_navigation(destination):
 
 selected_nav_key = {
     "Top Gainer Intelligence": "nav_top_gainer_intelligence",
+    "Multidimensional Analytics": "nav_multidimensional_analytics",
     "MACD Cross Over Movement": "nav_macd_cross_over_movement",
     "Dashboard": "nav_dashboard",
     "Watchlist": "nav_watchlist",
@@ -461,6 +462,7 @@ div[data-testid="stAppViewContainer"] > .main {
 
 primary_navigation = [
     ("Top Gainer Intelligence", "▥", "nav_top_gainer_intelligence"),
+    ("Multidimensional Analytics", "▦", "nav_multidimensional_analytics"),
     ("MACD Cross Over Movement", "⌁", "nav_macd_cross_over_movement"),
 ]
 st.sidebar.markdown("""
@@ -500,18 +502,1241 @@ st.sidebar.markdown(
 
 page = st.session_state.main_navigation
 
+if page == "Multidimensional Analytics":
+    # This research page is intentionally independent of the existing Top Gainer page.
+    # It reuses the same CSV and optional SVG-audit inputs without changing existing flows.
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    ANALYTICS_APP_DIR = Path(__file__).resolve().parent
+    analytics_default_csv = ANALYTICS_APP_DIR / "Backtest Top Gainers.csv"
+    analytics_default_audit = ANALYTICS_APP_DIR / "Backtest_Top_Gainers_CSV_vs_SVG_Audit.csv"
+
+    st.markdown("""
+    <div class="market-hero">
+      <div class="market-hero-content">
+        <div class="market-hero-title">📊 Backtest Top Gainers <span>Multidimensional Insights</span></div>
+        <p class="market-hero-subtitle">Explore recurrence, time patterns, sector concentration and market-cap distribution. Price-performance claims are separated from CSV-only findings.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.expander("🗃️  Analytics data sources", expanded=False):
+        ac1, ac2 = st.columns(2, gap="medium")
+        with ac1:
+            analytics_csv_upload = st.file_uploader("Backtest Top Gainers CSV", type=["csv"], key="analytics_csv_upload")
+        with ac2:
+            analytics_audit_upload = st.file_uploader("Optional SVG audit CSV", type=["csv"], key="analytics_audit_upload")
+
+    try:
+        if analytics_csv_upload is not None:
+            analytics_raw = pd.read_csv(BytesIO(analytics_csv_upload.getvalue()))
+            analytics_source_label = "Uploaded CSV"
+        elif analytics_default_csv.exists():
+            analytics_raw = pd.read_csv(analytics_default_csv)
+            analytics_source_label = "Application-folder CSV"
+        else:
+            analytics_raw = None
+            analytics_source_label = "No CSV loaded"
+
+        if analytics_raw is None:
+            st.warning("Upload **Backtest Top Gainers.csv** above, or place it beside app.py to populate this dashboard.")
+            st.stop()
+
+        # Match source columns case-insensitively while preserving the original dataset.
+        col_lookup = {str(c).strip().casefold(): c for c in analytics_raw.columns}
+        def find_col(*names):
+            for name in names:
+                if name.casefold() in col_lookup:
+                    return col_lookup[name.casefold()]
+            return None
+
+        date_col = find_col("Date", "DateTime", "Occurrence Date", "Timestamp")
+        symbol_col = find_col("Symbol", "Stock", "Stock Name", "Ticker")
+        sector_col = find_col("Sector", "Industry")
+        cap_col = find_col("Marketcapname", "Market Cap", "MarketCap", "Market Capitalization")
+        missing_cols = [label for label, col in [("Date", date_col), ("Symbol", symbol_col), ("Sector", sector_col), ("Market cap", cap_col)] if col is None]
+        if missing_cols:
+            st.error("Required columns not found: " + ", ".join(missing_cols) + ". Expected Date, Symbol, Sector and Marketcapname (column names are case-insensitive).")
+            st.caption("Available columns: " + ", ".join(map(str, analytics_raw.columns)))
+            st.stop()
+
+        adf = pd.DataFrame({
+            "Symbol": analytics_raw[symbol_col].astype("string").str.strip().str.upper(),
+            "Sector": analytics_raw[sector_col].astype("string").str.strip().fillna("Unknown"),
+            "Market Cap": analytics_raw[cap_col].astype("string").str.strip().fillna("Unknown"),
+            "Original Date": analytics_raw[date_col].astype("string").str.strip(),
+        })
+        adf["DateTime"] = pd.to_datetime(adf["Original Date"], errors="coerce", dayfirst=True)
+        # Explicitly retry the common timestamp format used by this project.
+        bad_date_mask = adf["DateTime"].isna()
+        if bad_date_mask.any():
+            adf.loc[bad_date_mask, "DateTime"] = pd.to_datetime(
+                adf.loc[bad_date_mask, "Original Date"], format="%d-%m-%Y %I:%M %p", errors="coerce"
+            )
+        invalid_date_count = int(adf["DateTime"].isna().sum())
+        blank_symbol_count = int(adf["Symbol"].isna().sum() + adf["Symbol"].fillna("").eq("").sum())
+        adf = adf[adf["Symbol"].notna() & adf["Symbol"].ne("")].copy()
+
+        # SVG timeline dates override CSV dates only where the audit has a complete,
+        # one-for-one list for that stock. The number of occurrences remains CSV-derived.
+        if analytics_audit_upload is not None:
+            audit_raw = pd.read_csv(BytesIO(analytics_audit_upload.getvalue()))
+            audit_label = "Uploaded SVG audit"
+        elif analytics_default_audit.exists():
+            audit_raw = pd.read_csv(analytics_default_audit)
+            audit_label = "Application-folder SVG audit"
+        else:
+            audit_raw = None
+            audit_label = "No SVG audit; CSV dates used"
+
+        svg_overridden_symbols = 0
+        if audit_raw is not None:
+            audit_cols = {str(c).strip().casefold(): c for c in audit_raw.columns}
+            audit_symbol_col = audit_cols.get("symbol")
+            audit_dates_col = audit_cols.get("svg_timeline_dates")
+            if audit_symbol_col is not None and audit_dates_col is not None:
+                for _, ar in audit_raw.iterrows():
+                    sym = str(ar[audit_symbol_col]).strip().upper()
+                    raw_dates = str(ar[audit_dates_col]).strip()
+                    if not raw_dates or raw_dates.casefold() in {"nan", "none", "null"}:
+                        continue
+                    svg_dates = []
+                    for part in raw_dates.split(" | "):
+                        parsed_date = pd.to_datetime(part.strip(), errors="coerce", dayfirst=True)
+                        if pd.isna(parsed_date):
+                            parsed_date = pd.to_datetime(part.strip(), format="%d-%b-%Y", errors="coerce")
+                        if pd.notna(parsed_date):
+                            svg_dates.append(parsed_date)
+                    row_idx = adf.index[adf["Symbol"].eq(sym)].tolist()
+                    # Apply SVG dates only when counts agree, avoiding fabricated/misaligned matches.
+                    if row_idx and len(svg_dates) == len(row_idx):
+                        ordered_idx = adf.loc[row_idx].sort_values("DateTime", na_position="last").index.tolist()
+                        for idx, svg_dt in zip(ordered_idx, sorted(svg_dates)):
+                            adf.at[idx, "DateTime"] = svg_dt
+                        svg_overridden_symbols += 1
+
+        adf["Date"] = adf["DateTime"].dt.normalize()
+        adf["Month"] = adf["DateTime"].dt.to_period("M").astype("string")
+        adf["Weekday"] = adf["DateTime"].dt.day_name()
+        adf["Time"] = adf["DateTime"].dt.strftime("%I:%M %p")
+        adf["Sector"] = adf["Sector"].replace({"<NA>": "Unknown", "nan": "Unknown", "": "Unknown"})
+        adf["Market Cap"] = adf["Market Cap"].replace({"<NA>": "Unknown", "nan": "Unknown", "": "Unknown"})
+
+        # Filters apply consistently to every chart and detail table.
+        st.markdown("#### Filters")
+        filter_cols = st.columns([1.15, 1.1, 1.1, .9])
+        valid_dates = adf["Date"].dropna()
+        if not valid_dates.empty:
+            date_min, date_max = valid_dates.min().date(), valid_dates.max().date()
+        else:
+            date_min = date_max = datetime.now().date()
+        with filter_cols[0]:
+            chosen_range = st.date_input("Occurrence date range", value=(date_min, date_max), key="multi_date_range")
+        with filter_cols[1]:
+            sector_choice = st.selectbox("Sector", ["All sectors"] + sorted(adf["Sector"].unique().tolist()), key="multi_sector")
+        with filter_cols[2]:
+            cap_choice = st.selectbox("Market cap", ["All market caps"] + sorted(adf["Market Cap"].unique().tolist()), key="multi_cap")
+        with filter_cols[3]:
+            top_n = st.selectbox("Top stocks", [10, 15, 20, 30], index=0, key="multi_top_n")
+
+        filtered = adf.copy()
+        if isinstance(chosen_range, (tuple, list)) and len(chosen_range) == 2:
+            start_dt, end_dt = pd.Timestamp(chosen_range[0]), pd.Timestamp(chosen_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+            filtered = filtered[filtered["DateTime"].between(start_dt, end_dt) | filtered["DateTime"].isna()]
+        if sector_choice != "All sectors":
+            filtered = filtered[filtered["Sector"] == sector_choice]
+        if cap_choice != "All market caps":
+            filtered = filtered[filtered["Market Cap"] == cap_choice]
+
+        stock_counts = filtered.groupby("Symbol").size().sort_values(ascending=False)
+        sector_counts = filtered.groupby("Sector").size().sort_values(ascending=False)
+        cap_counts = filtered.groupby("Market Cap").size().sort_values(ascending=False)
+        unique_dates = filtered["Date"].dropna().nunique()
+        first_date = filtered["Date"].min()
+        last_date = filtered["Date"].max()
+
+        st.markdown("""
+        <style>
+        .analytics-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:8px 0 14px}
+        .analytics-kpi{border:1px solid #174467;border-radius:13px;padding:13px 14px;background:linear-gradient(145deg,#0A2742,#071B30);min-height:91px}
+        .analytics-kpi-label{font-size:.72rem;color:#AFC5DC;margin-bottom:7px}
+        .analytics-kpi-value{font-size:1.55rem;font-weight:800;color:#2DE1AC;line-height:1.15;letter-spacing:-.03em}
+        .analytics-kpi-note{font-size:.66rem;color:#8FAAC5;margin-top:5px}
+        .analytics-section{font-size:1rem;font-weight:750;color:#F2F7FF;margin:4px 0 9px}
+        .analytics-panel{border:1px solid #173F5E;border-radius:13px;padding:12px;background:rgba(8,31,52,.75);height:100%}
+        .verified-note{border-left:3px solid #22D3A5;background:#0B302F;border-radius:7px;padding:11px 13px;color:#D8FFF4;font-size:.82rem}
+        .external-note{border-left:3px solid #FBBF24;background:#332B18;border-radius:7px;padding:11px 13px;color:#FFF3CD;font-size:.82rem}
+        @media(max-width:1100px){.analytics-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}}
+        @media(max-width:650px){.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        </style>
+        """, unsafe_allow_html=True)
+
+        kpi_date_range = f"{first_date:%d %b %Y} – {last_date:%d %b %Y}" if pd.notna(first_date) and pd.notna(last_date) else "Date unavailable"
+        kpi_cards = f"""<div class="analytics-kpis">
+          <div class="analytics-kpi"><div class="analytics-kpi-label">Total occurrences</div><div class="analytics-kpi-value">{len(filtered):,}</div><div class="analytics-kpi-note">Rows in filtered CSV</div></div>
+          <div class="analytics-kpi"><div class="analytics-kpi-label">Unique stocks</div><div class="analytics-kpi-value">{filtered["Symbol"].nunique():,}</div><div class="analytics-kpi-note">Distinct symbols</div></div>
+          <div class="analytics-kpi"><div class="analytics-kpi-label">Sectors</div><div class="analytics-kpi-value">{filtered["Sector"].nunique():,}</div><div class="analytics-kpi-note">Distinct sector labels</div></div>
+          <div class="analytics-kpi"><div class="analytics-kpi-label">Market-cap groups</div><div class="analytics-kpi-value">{filtered["Market Cap"].nunique():,}</div><div class="analytics-kpi-note">Distinct categories</div></div>
+          <div class="analytics-kpi"><div class="analytics-kpi-label">Date coverage</div><div class="analytics-kpi-value" style="font-size:1.03rem">{kpi_date_range}</div><div class="analytics-kpi-note">{unique_dates:,} unique dates</div></div>
+          <div class="analytics-kpi"><div class="analytics-kpi-label">Signal time</div><div class="analytics-kpi-value" style="font-size:1.22rem">{(filtered["Time"].mode().iloc[0] if not filtered["Time"].dropna().empty else "—")}</div><div class="analytics-kpi-note">Most common recorded time</div></div>
+        </div>"""
+        st.markdown(kpi_cards, unsafe_allow_html=True)
+        st.caption(f"Source: {analytics_source_label} · Date source: {audit_label} · SVG date overrides applied to {svg_overridden_symbols} stock(s) where audit and CSV occurrence counts matched. CSV row counts remain the occurrence-count source.")
+
+        # Keep every chart row to exactly two panels so labels and category names stay readable.
+        chart_col1, chart_col2 = st.columns(2, gap="large")
+        with chart_col1:
+            st.markdown('<div class="analytics-section">Top stocks by occurrences</div>', unsafe_allow_html=True)
+            top_stock = stock_counts.head(int(top_n)).sort_values()
+            fig = go.Figure(go.Bar(x=top_stock.values, y=top_stock.index, orientation="h", marker=dict(color="#20D9AA"), text=top_stock.values, textposition="outside", cliponaxis=False))
+            fig.update_layout(height=max(360, 24 * len(top_stock) + 100), margin=dict(l=12,r=36,t=8,b=38), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=11), xaxis=dict(title="Occurrences",gridcolor="#183A55",zerolinecolor="#183A55",automargin=True), yaxis=dict(title="",automargin=True), showlegend=False)
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+        with chart_col2:
+            st.markdown('<div class="analytics-section">Occurrences over time</div>', unsafe_allow_html=True)
+            monthly = filtered.dropna(subset=["DateTime"]).groupby("Month").size().rename("Occurrences").reset_index()
+            fig = px.line(monthly, x="Month", y="Occurrences", markers=True)
+            fig.update_traces(line_color="#1FE0C0", marker_color="#45E5D1", fill="tozeroy", fillcolor="rgba(31,224,192,.12)")
+            fig.update_layout(height=380, margin=dict(l=18,r=18,t=8,b=55), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=11), xaxis=dict(title="Month",gridcolor="#183A55",tickangle=-30,automargin=True), yaxis=dict(title="Occurrences",gridcolor="#183A55",automargin=True))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+
+        chart_col3, chart_col4 = st.columns(2, gap="large")
+        with chart_col3:
+            st.markdown('<div class="analytics-section">Occurrences by sector</div>', unsafe_allow_html=True)
+            sector_top = sector_counts.head(12).sort_values()
+            fig = go.Figure(go.Bar(x=sector_top.values, y=sector_top.index, orientation="h", marker=dict(color="#499DFF"), text=sector_top.values, textposition="outside", cliponaxis=False))
+            fig.update_layout(height=max(350, 27 * len(sector_top) + 90), margin=dict(l=16,r=38,t=8,b=38), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=11), xaxis=dict(title="Occurrences",gridcolor="#183A55",automargin=True), yaxis=dict(title="",automargin=True))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+        with chart_col4:
+            st.markdown('<div class="analytics-section">Market-cap distribution</div>', unsafe_allow_html=True)
+            cap_df = cap_counts.rename_axis("Market Cap").reset_index(name="Occurrences")
+            fig = px.pie(cap_df, names="Market Cap", values="Occurrences", hole=.58, color_discrete_sequence=["#20D9AA", "#319BFF", "#F8BF3C", "#A78BFA", "#FB7185", "#5CC9D6"])
+            fig.update_layout(height=380, margin=dict(l=16,r=16,t=8,b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=11), legend=dict(orientation="v",y=.5,yanchor="middle",x=1.0,xanchor="left",font=dict(size=11)))
+            fig.update_traces(textposition="inside", textinfo="percent+label", insidetextorientation="auto")
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+
+        chart_col5, chart_col6 = st.columns(2, gap="large")
+        with chart_col5:
+            st.markdown('<div class="analytics-section">Sector × market-cap heatmap</div>', unsafe_allow_html=True)
+            heat = pd.crosstab(filtered["Sector"], filtered["Market Cap"])
+            if not heat.empty:
+                heat = heat.loc[heat.sum(axis=1).sort_values(ascending=False).index].head(15)
+                fig = px.imshow(heat, text_auto=True, aspect="auto", color_continuous_scale=[[0,"#0A223B"],[.5,"#167D83"],[1,"#25DDA8"]])
+                fig.update_layout(height=max(360, 27 * len(heat) + 100), margin=dict(l=12,r=12,t=8,b=70), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=10), coloraxis_showscale=False, xaxis_title="Market cap", yaxis_title="", xaxis=dict(tickangle=-25,automargin=True), yaxis=dict(automargin=True))
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+            else:
+                st.info("No sector / market-cap rows for these filters.")
+        with chart_col6:
+            st.markdown('<div class="analytics-section">Weekday pattern</div>', unsafe_allow_html=True)
+            weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            weekday_counts = filtered["Weekday"].value_counts().reindex(weekday_order, fill_value=0)
+            fig = go.Figure(go.Bar(x=weekday_counts.index, y=weekday_counts.values, marker_color=["#3B9EFF", "#24D7B0", "#FFB547", "#9D8BFF", "#FB7185", "#5CC9D6", "#F97316"], text=weekday_counts.values, textposition="outside", cliponaxis=False))
+            fig.update_layout(height=380, margin=dict(l=18,r=18,t=8,b=50), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=11), xaxis=dict(title="Weekday",tickangle=-20,automargin=True), yaxis=dict(title="Occurrences",gridcolor="#183A55",automargin=True))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+
+        row3a, row3b = st.columns(2, gap="large")
+        with row3a:
+            st.markdown('<div class="analytics-section">Stock recurrence distribution</div>', unsafe_allow_html=True)
+            recurrence = stock_counts.value_counts().sort_index()
+            bins = {
+                "1 occurrence": int((stock_counts == 1).sum()),
+                "2 occurrences": int((stock_counts == 2).sum()),
+                "3–4 occurrences": int(stock_counts.between(3, 4).sum()),
+                "5–14 occurrences": int(stock_counts.between(5, 14).sum()),
+                "15+ occurrences": int((stock_counts >= 15).sum()),
+            }
+            dist = pd.DataFrame({"Frequency band": list(bins.keys()), "Stocks": list(bins.values())})
+            fig = px.bar(dist, x="Frequency band", y="Stocks", color="Frequency band", text="Stocks", color_discrete_sequence=["#20D9AA", "#319BFF", "#F8BF3C", "#FF9848", "#FB7185"])
+            fig.update_layout(height=360, margin=dict(l=12,r=16,t=8,b=75), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#DCEBFA",size=11), showlegend=False, xaxis=dict(title="Frequency band",tickangle=-20,automargin=True), yaxis=dict(title="Number of stocks",gridcolor="#183A55",automargin=True))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
+        with row3b:
+            st.markdown('<div class="analytics-section">Research notes</div>', unsafe_allow_html=True)
+            st.markdown('<div class="verified-note"><b>✓ Verified from occurrence CSV</b><br>• Occurrence count and unique stock count<br>• Sector and market-cap distribution<br>• Monthly / weekday recurrence patterns<br>• Top recurring symbols and recurrence bands</div>', unsafe_allow_html=True)
+            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="external-note"><b>! External price data required</b><br>• Daily Open, High, Low, Close and Volume<br>• Previous trading-day close and % change<br>• Forward returns, drawdown, volatility and risk-adjusted performance<br>• Strategy backtest with costs and slippage</div>', unsafe_allow_html=True)
+            st.caption("Hypothesis, not a verified finding: repeated appearances may indicate momentum or simply greater volatility/liquidity. Test forward returns against a suitable benchmark before drawing conclusions.")
+
+        st.markdown("#### Stock explorer")
+        if not stock_counts.empty:
+            default_symbol = str(stock_counts.index[0])
+            chosen_symbol = st.selectbox("Select a stock to inspect its occurrences", stock_counts.index.tolist(), index=0, key="multi_stock_select")
+            stock_rows = filtered[filtered["Symbol"] == chosen_symbol].sort_values("DateTime")
+            meta_cols = st.columns(4)
+            meta_cols[0].metric("Occurrences", f"{len(stock_rows):,}")
+            meta_cols[1].metric("Sector", str(stock_rows["Sector"].mode().iloc[0]) if not stock_rows["Sector"].mode().empty else "Unknown")
+            meta_cols[2].metric("Market cap", str(stock_rows["Market Cap"].mode().iloc[0]) if not stock_rows["Market Cap"].mode().empty else "Unknown")
+            meta_cols[3].metric("Unique dates", f"{stock_rows['Date'].nunique():,}")
+            display_rows = stock_rows[["Symbol", "DateTime", "Sector", "Market Cap"]].copy()
+            display_rows["Date and time"] = display_rows["DateTime"].dt.strftime("%d %b %Y · %I:%M %p")
+            st.dataframe(display_rows[["Symbol", "Date and time", "Sector", "Market Cap"]], use_container_width=True, hide_index=True)
+        else:
+            st.info("No stock occurrences match the selected filters.")
+
+        # Additional exploratory insights derived strictly from occurrence metadata.
+        st.markdown("---")
+        st.markdown("### Additional multidimensional insights")
+        st.caption("These views analyse recurrence, concentration and timing from the selected CSV/SVG-aligned occurrence dates. They do not imply profitability or price returns.")
+
+        # Build one row per stock for concentration and recurrence-span analysis.
+        valid_occurrences = filtered.dropna(subset=["DateTime"]).copy()
+        if not valid_occurrences.empty:
+            stock_profile = (
+                valid_occurrences.groupby("Symbol")
+                .agg(
+                    Occurrences=("Symbol", "size"),
+                    First_seen=("DateTime", "min"),
+                    Last_seen=("DateTime", "max"),
+                    Sector=("Sector", lambda x: x.mode().iloc[0] if not x.mode().empty else "Unknown"),
+                    Market_Cap=("Market Cap", lambda x: x.mode().iloc[0] if not x.mode().empty else "Unknown"),
+                )
+                .reset_index()
+            )
+            stock_profile["Active span (days)"] = (
+                stock_profile["Last_seen"] - stock_profile["First_seen"]
+            ).dt.days
+            stock_profile["Occurrence share (%)"] = (
+                stock_profile["Occurrences"] / max(len(valid_occurrences), 1) * 100
+            )
+            stock_profile = stock_profile.sort_values("Occurrences", ascending=False)
+
+            # Insight cards.
+            total_occ_for_share = max(int(stock_profile["Occurrences"].sum()), 1)
+            top_stock_row = stock_profile.iloc[0]
+            top_5_share = stock_profile.head(5)["Occurrences"].sum() / total_occ_for_share * 100
+            sector_share = (sector_counts.iloc[0] / max(int(sector_counts.sum()), 1) * 100) if not sector_counts.empty else 0
+            month_counts_extra = valid_occurrences.groupby("Month").size().sort_values(ascending=False)
+            peak_month_label = str(month_counts_extra.index[0]) if not month_counts_extra.empty else "—"
+            peak_month_count = int(month_counts_extra.iloc[0]) if not month_counts_extra.empty else 0
+            repeat_stock_pct = (int((stock_profile["Occurrences"] >= 2).sum()) / max(len(stock_profile), 1) * 100)
+
+            insight_cols = st.columns(4, gap="medium")
+            insight_cols[0].metric("Top recurring stock", str(top_stock_row["Symbol"]), f'{int(top_stock_row["Occurrences"])} occurrences')
+            insight_cols[1].metric("Top 5 stock concentration", f"{top_5_share:.1f}%", "share of filtered occurrences")
+            insight_cols[2].metric("Most active month", peak_month_label, f"{peak_month_count:,} occurrences")
+            insight_cols[3].metric("Stocks seen 2+ times", f"{repeat_stock_pct:.1f}%", f'{int((stock_profile["Occurrences"] >= 2).sum()):,} of {len(stock_profile):,} stocks')
+
+            # Row 1: Pareto concentration and stock recurrence span.
+            extra_a, extra_b = st.columns(2, gap="large")
+            with extra_a:
+                st.markdown('<div class="analytics-section">Occurrence concentration (Pareto)</div>', unsafe_allow_html=True)
+                pareto = stock_profile.head(max(10, int(top_n))).copy()
+                pareto["Cumulative share (%)"] = pareto["Occurrences"].cumsum() / total_occ_for_share * 100
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=pareto["Symbol"], y=pareto["Occurrences"], name="Occurrences",
+                    marker_color="#20D9AA", text=pareto["Occurrences"], textposition="outside", cliponaxis=False
+                ))
+                fig.add_trace(go.Scatter(
+                    x=pareto["Symbol"], y=pareto["Cumulative share (%)"], name="Cumulative share",
+                    yaxis="y2", mode="lines+markers", line=dict(color="#F8BF3C", width=2), marker=dict(size=6)
+                ))
+                fig.update_layout(
+                    height=390, margin=dict(l=15, r=48, t=18, b=85),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#DCEBFA", size=10), legend=dict(orientation="h", y=1.12, x=0),
+                    xaxis=dict(title="Stock symbol", tickangle=-40, automargin=True),
+                    yaxis=dict(title="Occurrences", gridcolor="#183A55", rangemode="tozero"),
+                    yaxis2=dict(title="Cumulative share (%)", overlaying="y", side="right", range=[0, 105], showgrid=False)
+                )
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                st.caption(f'The five most recurrent stocks account for {top_5_share:.1f}% of occurrences in the current filter. Concentration is descriptive, not a return or risk measure.')
+
+            with extra_b:
+                st.markdown('<div class="analytics-section">Recurrence frequency vs active span</div>', unsafe_allow_html=True)
+                fig = px.scatter(
+                    stock_profile, x="Active span (days)", y="Occurrences", color="Sector",
+                    size="Occurrences", hover_name="Symbol",
+                    hover_data={"Sector": True, "Market_Cap": True, "First_seen": True, "Last_seen": True, "Occurrence share (%)": ":.1f"},
+                    color_discrete_sequence=["#20D9AA", "#499DFF", "#F8BF3C", "#A78BFA", "#FB7185", "#5CC9D6", "#FF9848", "#71D6A5"]
+                )
+                fig.update_layout(
+                    height=390, margin=dict(l=15, r=15, t=18, b=48),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#DCEBFA", size=10),
+                    xaxis=dict(title="Days between first and last recorded occurrence", gridcolor="#183A55", automargin=True),
+                    yaxis=dict(title="Occurrences per stock", gridcolor="#183A55", automargin=True),
+                    legend=dict(title="Sector", orientation="h", y=-.25, x=0)
+                )
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                st.caption("Stocks high on the chart but far left recur frequently within a short calendar span; those farther right recur over a longer observed period.")
+
+            # Row 2: sector/month movement and gaps between appearances.
+            extra_c, extra_d = st.columns(2, gap="large")
+            with extra_c:
+                st.markdown('<div class="analytics-section">Monthly occurrences by sector</div>', unsafe_allow_html=True)
+                sector_month = pd.crosstab(valid_occurrences["Month"], valid_occurrences["Sector"])
+                if not sector_month.empty:
+                    top_sectors_for_heat = sector_counts.head(8).index.tolist()
+                    sector_month = sector_month.reindex(columns=top_sectors_for_heat, fill_value=0)
+                    sector_month = sector_month.loc[sector_month.sum(axis=1).sort_index().index]
+                    fig = px.imshow(
+                        sector_month.T, aspect="auto", text_auto=True,
+                        color_continuous_scale=[[0, "#0A223B"], [.45, "#167D83"], [1, "#25DDA8"]]
+                    )
+                    fig.update_layout(
+                        height=max(350, 28 * len(sector_month.columns) + 130),
+                        margin=dict(l=12, r=12, t=15, b=60),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#DCEBFA", size=10), coloraxis_showscale=False,
+                        xaxis=dict(title="Month", tickangle=-35, automargin=True),
+                        yaxis=dict(title="Sector", automargin=True)
+                    )
+                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                else:
+                    st.info("Not enough dated rows to build the sector/month view.")
+                st.caption("This highlights when recorded signals clustered by sector. Month-to-month changes can reflect the dataset's collection process as well as market conditions.")
+
+            with extra_d:
+                st.markdown('<div class="analytics-section">Calendar-day gaps between occurrences</div>', unsafe_allow_html=True)
+                gap_parts = []
+                for sym, group in valid_occurrences.sort_values("DateTime").groupby("Symbol"):
+                    dates = group["DateTime"].dropna().drop_duplicates().sort_values()
+                    if len(dates) > 1:
+                        gaps = dates.diff().dt.days.dropna()
+                        if not gaps.empty:
+                            gap_parts.extend([{"Symbol": sym, "Gap (days)": int(g)} for g in gaps if pd.notna(g) and g >= 0])
+                gap_df = pd.DataFrame(gap_parts)
+                if not gap_df.empty:
+                    fig = px.histogram(
+                        gap_df, x="Gap (days)", nbins=min(24, max(6, int(gap_df["Gap (days)"].nunique()))),
+                        color_discrete_sequence=["#499DFF"]
+                    )
+                    fig.update_traces(marker_line_color="#0A223B", marker_line_width=1)
+                    fig.update_layout(
+                        height=390, margin=dict(l=15, r=15, t=18, b=48),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#DCEBFA", size=10),
+                        xaxis=dict(title="Calendar days between distinct dates", gridcolor="#183A55", automargin=True),
+                        yaxis=dict(title="Number of gaps", gridcolor="#183A55", automargin=True),
+                        bargap=.08
+                    )
+                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                    st.caption(f"Median gap: {gap_df['Gap (days)'].median():.0f} calendar days · {len(gap_df):,} within-stock gaps. Weekends and holidays are included; these are not trading-day gaps.")
+                else:
+                    st.info("At least two distinct occurrence dates per stock are needed to calculate gaps.")
+
+            # Sector-level profile table for comparing breadth and concentration.
+            st.markdown('<div class="analytics-section">Sector profile: breadth and recurrence</div>', unsafe_allow_html=True)
+            sector_profile = (
+                filtered.groupby("Sector")
+                .agg(
+                    Occurrences=("Symbol", "size"),
+                    Unique_stocks=("Symbol", "nunique"),
+                    Market_cap_groups=("Market Cap", "nunique"),
+                )
+                .reset_index()
+            )
+            sector_profile["Occurrences per stock"] = (
+                sector_profile["Occurrences"] / sector_profile["Unique_stocks"].replace(0, np.nan)
+            ).round(2)
+            sector_profile["Share of occurrences (%)"] = (
+                sector_profile["Occurrences"] / max(len(filtered), 1) * 100
+            ).round(1)
+            sector_profile = sector_profile.sort_values("Occurrences", ascending=False)
+            st.dataframe(
+                sector_profile.rename(columns={
+                    "Unique_stocks": "Unique stocks",
+                    "Market_cap_groups": "Market-cap groups",
+                    "Occurrences per stock": "Occurrences / stock",
+                    "Share of occurrences (%)": "Occurrence share (%)",
+                }),
+                use_container_width=True, hide_index=True
+            )
+            if not sector_profile.empty:
+                leading_sector = sector_profile.iloc[0]
+                st.info(
+                    f"**CSV-derived observation:** {leading_sector['Sector']} has the most recorded occurrences "
+                    f"({int(leading_sector['Occurrences']):,}, {float(leading_sector['Share of occurrences (%)']):.1f}% of the filtered total) "
+                    f"across {int(leading_sector['Unique_stocks'])} unique stock(s). This measures signal frequency only—not sector returns or investment quality."
+                )
+        else:
+            st.info("No valid dated occurrences are available for the additional insight charts under the current filters.")
+
+        with st.expander("Data quality checks", expanded=False):
+            dq1, dq2, dq3, dq4 = st.columns(4)
+            dq1.metric("Rows in source CSV", f"{len(analytics_raw):,}")
+            dq2.metric("Rows with invalid dates", f"{invalid_date_count:,}")
+            dq3.metric("Blank stock symbols", f"{blank_symbol_count:,}")
+            dq4.metric("Duplicate rows", f"{int(analytics_raw.duplicated().sum()):,}")
+            st.caption("Counts above are source-level checks. Date range and charts reflect the current filters. No OHLC-derived price performance is inferred from occurrence metadata.")
+    except Exception as exc:
+        st.error(f"Could not build the multidimensional analytics dashboard: {exc}")
+        st.exception(exc)
+    st.stop()
+
 if page == "MACD Cross Over Movement":
-    st.markdown("""<div class="hero"><h1>📉 MACD Cross Over <span>Movement</span></h1><p>A dedicated workspace for identifying and analysing MACD line / signal line crossovers.</p></div>""", unsafe_allow_html=True)
-    st.info("This navigation page is set up. The MACD crossover analysis module has not yet been implemented in this version.")
-    st.markdown("### Planned analysis workspace")
-    macd_cols = st.columns(3)
-    with macd_cols[0]:
-        st.markdown('<div class="kpi"><div class="kpi-label">Signal detection</div><div class="kpi-value">Bullish & Bearish</div><div class="small-muted">MACD / signal-line crossover</div></div>', unsafe_allow_html=True)
-    with macd_cols[1]:
-        st.markdown('<div class="kpi"><div class="kpi-label">Market universe</div><div class="kpi-value">NSE stocks</div><div class="small-muted">Configurable symbol list</div></div>', unsafe_allow_html=True)
-    with macd_cols[2]:
-        st.markdown('<div class="kpi"><div class="kpi-label">Analysis</div><div class="kpi-value">Trend & momentum</div><div class="small-muted">Crossover date, price and follow-through</div></div>', unsafe_allow_html=True)
-    st.caption("Select **Top Gainer Intelligence** in the left navigation to return to the existing dashboard.")
+    import xml.etree.ElementTree as ET
+    from datetime import datetime
+
+    st.markdown("""<div class="hero"><h1>📉 MACD <span>Cross Over & Cross Down</span></h1><p>Pair each stock’s 1st bullish MACD CrossOver with its 1st bearish CrossDown, 2nd with 2nd, and so on to show trade cycles.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    .macd-kpi {background:linear-gradient(135deg,#0C2942,#0A1D31);border:1px solid #194663;border-radius:13px;padding:15px 17px;min-height:96px;}
+    .macd-kpi-label {color:#9CB7D0;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:750;}
+    .macd-kpi-value {color:#F4F8FF;font-size:27px;font-weight:800;line-height:1.25;margin-top:5px;font-variant-numeric:tabular-nums;}
+    .macd-card {background:linear-gradient(135deg,#0B263D,#081B2D);border:1px solid #19445C;border-left:3px solid #20D9AA;border-radius:12px;padding:15px 16px;margin:7px 0;}
+    .macd-symbol {color:#F4F8FF;font-weight:800;font-size:16px;letter-spacing:.02em;}
+    .macd-muted {color:#9FB6CB;font-size:11px;}
+    .macd-date-chip {display:inline-block;border-radius:7px;padding:5px 9px;margin:4px 5px 0 0;font-size:12px;font-weight:650;white-space:nowrap;}
+    .macd-up-chip {background:#10394A;border:1px solid #176B70;color:#73F0C7;}
+    .macd-down-chip {background:#3A202D;border:1px solid #8C3B51;color:#FF9BAD;}
+    .macd-signal-heading {font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;margin:10px 0 2px;}
+    @media(max-width:800px) { .macd-date-chip {font-size:11px;padding:4px 6px;} }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Embedded fallback datasets preserve operation if SVGs are not copied beside app.py.
+    _macd_crossover_fallback = {'NTPC': ['2026-02-23', '2026-04-13', '2026-06-19', '2026-07-14', '2026-07-20', '2026-08-13', '2026-08-21', '2026-09-07', '2026-09-24', '2026-10-16'], 'OFSS': ['2026-02-27', '2026-03-18', '2026-03-20', '2026-05-27', '2026-06-01', '2026-06-24', '2026-08-07', '2026-08-28', '2026-10-14', '2026-10-16'], 'JSWENERGY': ['2026-03-12', '2026-04-13', '2026-05-26', '2026-06-30', '2026-07-21', '2026-08-03', '2026-09-23', '2026-10-16'], 'AMBUJACEM': ['2026-04-01', '2026-05-07', '2026-05-25', '2026-06-17', '2026-08-03', '2026-09-23', '2026-10-16'], 'BHARATFORG': ['2026-04-10', '2026-05-07', '2026-06-15', '2026-07-21', '2026-08-07', '2026-09-21', '2026-10-16'], 'COCHINSHIP': ['2026-03-11', '2026-04-06', '2026-06-17', '2026-07-29', '2026-09-09', '2026-10-16'], 'TATAPOWER': ['2026-03-11', '2026-04-10', '2026-06-19', '2026-07-13', '2026-09-07', '2026-10-16'], 'ADANIPOWER': ['2026-03-12', '2026-05-27', '2026-08-11', '2026-08-21', '2026-09-21', '2026-10-16'], 'ASHOKLEY': ['2026-04-08', '2026-05-07', '2026-05-25', '2026-06-15', '2026-07-29', '2026-10-16'], 'HYUNDAI': ['2026-04-10', '2026-05-21', '2026-07-07', '2026-07-15', '2026-07-30', '2026-10-16'], 'LUPIN': ['2026-04-16', '2026-05-05', '2026-06-11', '2026-09-17', '2026-10-16'], 'ANANDRATHI': ['2026-04-02', '2026-06-17', '2026-08-11', '2026-10-16'], 'INDHOTEL': ['2026-04-07', '2026-05-27', '2026-06-10', '2026-06-12', '2026-07-10', '2026-08-04', '2026-09-03', '2026-09-18', '2026-10-06', '2026-10-15'], 'HDFCBANK': ['2026-02-23', '2026-04-07', '2026-05-19', '2026-05-22', '2026-06-12', '2026-08-20', '2026-09-04', '2026-09-11', '2026-10-15'], 'HEROMOTOCO': ['2026-02-25', '2026-03-10', '2026-04-08', '2026-05-05', '2026-05-27', '2026-06-12', '2026-07-06', '2026-09-22', '2026-10-15'], 'PIIND': ['2026-02-26', '2026-03-10', '2026-04-07', '2026-05-19', '2026-06-10', '2026-07-15', '2026-09-07', '2026-09-21', '2026-10-15'], 'NAUKRI': ['2026-03-16', '2026-05-22', '2026-06-16', '2026-07-02', '2026-07-29', '2026-08-03', '2026-08-11', '2026-10-15'], 'PHOENIXLTD': ['2026-03-18', '2026-04-02', '2026-05-06', '2026-06-15', '2026-08-21', '2026-09-02', '2026-09-21', '2026-10-15'], 'BEL': ['2026-03-02', '2026-03-05', '2026-04-08', '2026-06-09', '2026-06-15', '2026-08-07', '2026-10-15'], 'RELIANCE': ['2026-03-09', '2026-04-17', '2026-06-16', '2026-07-10', '2026-07-31', '2026-09-04', '2026-10-15'], 'M&M': ['2026-03-25', '2026-04-01', '2026-04-29', '2026-05-05', '2026-06-15', '2026-07-17', '2026-10-15'], 'HINDPETRO': ['2026-04-01', '2026-05-22', '2026-06-16', '2026-07-07', '2026-07-20', '2026-09-18', '2026-10-15'], 'ITC': ['2026-04-06', '2026-05-18', '2026-06-15', '2026-07-22', '2026-09-16', '2026-10-09', '2026-10-15'], 'TVSMOTOR': ['2026-04-06', '2026-05-07', '2026-06-05', '2026-06-09', '2026-06-12', '2026-07-21', '2026-10-15'], 'BAJAJ-AUTO': ['2026-04-07', '2026-04-30', '2026-05-21', '2026-05-27', '2026-07-07', '2026-09-01', '2026-10-15'], 'AMBER': ['2026-04-08', '2026-06-08', '2026-06-16', '2026-07-10', '2026-08-07', '2026-08-18', '2026-10-15'], 'SBICARD': ['2026-04-08', '2026-05-25', '2026-06-15', '2026-07-10', '2026-08-26', '2026-09-04', '2026-10-15'], 'INDUSINDBK': ['2026-02-26', '2026-04-08', '2026-05-27', '2026-06-16', '2026-07-01', '2026-10-15'], 'IREDA': ['2026-03-17', '2026-06-17', '2026-08-03', '2026-08-25', '2026-09-21', '2026-10-15'], 'INOXWIND': ['2026-03-20', '2026-06-16', '2026-07-31', '2026-08-17', '2026-09-03', '2026-10-15'], 'MARUTI': ['2026-04-01', '2026-05-27', '2026-06-10', '2026-07-30', '2026-09-30', '2026-10-15'], 'NAM-INDIA': ['2026-04-01', '2026-06-16', '2026-08-04', '2026-08-17', '2026-08-19', '2026-10-15'], 'MARICO': ['2026-04-06', '2026-06-25', '2026-07-22', '2026-07-27', '2026-09-21', '2026-10-15'], 'CHOLAFIN': ['2026-02-25', '2026-04-08', '2026-06-12', '2026-08-03', '2026-10-15'], 'AUBANK': ['2026-04-06', '2026-06-12', '2026-07-10', '2026-07-29', '2026-10-15'], 'POLICYBZR': ['2026-04-06', '2026-05-18', '2026-06-18', '2026-07-29', '2026-10-15'], 'MOTHERSON': ['2026-04-08', '2026-05-07', '2026-05-15', '2026-07-27', '2026-10-15'], 'VOLTAS': ['2026-04-10', '2026-06-04', '2026-07-13', '2026-09-23', '2026-10-15'], 'NBCC': ['2026-03-18', '2026-03-25', '2026-04-01', '2026-05-27', '2026-08-03', '2026-08-27', '2026-09-04', '2026-09-21', '2026-10-14'], 'RVNL': ['2026-02-23', '2026-03-27', '2026-04-01', '2026-06-16', '2026-07-10', '2026-08-20', '2026-09-18', '2026-10-14'], 'NHPC': ['2026-03-12', '2026-06-18', '2026-07-20', '2026-09-01', '2026-09-03', '2026-09-18', '2026-10-14'], 'UJJIVANSFB': ['2026-03-25', '2026-05-04', '2026-06-11', '2026-09-23', '2026-09-25', '2026-09-29', '2026-10-14'], 'TECHM': ['2026-03-12', '2026-05-04', '2026-05-20', '2026-05-22', '2026-07-08', '2026-10-14'], 'ATHERENERG': ['2026-03-17', '2026-06-03', '2026-06-29', '2026-08-04', '2026-08-31', '2026-10-14'], 'SAGILITY': ['2026-03-18', '2026-05-07', '2026-06-22', '2026-07-27', '2026-08-27', '2026-10-14'], 'DLF': ['2026-04-06', '2026-05-27', '2026-06-15', '2026-08-17', '2026-09-23', '2026-10-14'], 'GODFRYPHLP': ['2026-04-07', '2026-06-22', '2026-07-20', '2026-07-24', '2026-09-22', '2026-10-14'], 'BAJAJHLDNG': ['2026-04-08', '2026-05-25', '2026-06-16', '2026-07-27', '2026-09-21', '2026-10-14'], 'UPL': ['2026-03-18', '2026-05-26', '2026-07-06', '2026-08-24', '2026-10-14'], 'ULTRACEMCO': ['2026-04-06', '2026-06-15', '2026-08-03', '2026-09-22', '2026-10-14'], 'FORCEMOT': ['2026-04-08', '2026-05-11', '2026-05-15', '2026-05-25', '2026-06-15', '2026-07-15', '2026-07-31', '2026-09-07', '2026-09-10', '2026-09-17', '2026-10-13'], 'JIOFIN': ['2026-03-18', '2026-04-01', '2026-05-26', '2026-06-15', '2026-07-01', '2026-07-13', '2026-07-17', '2026-07-29', '2026-09-23', '2026-10-13'], 'ASIANPAINT': ['2026-03-18', '2026-03-24', '2026-05-07', '2026-05-22', '2026-06-15', '2026-07-28', '2026-09-23', '2026-09-25', '2026-10-13'], 'CDSL': ['2026-03-19', '2026-03-25', '2026-04-01', '2026-05-26', '2026-06-12', '2026-07-10', '2026-08-17', '2026-08-21', '2026-10-13'], 'IEX': ['2026-03-11', '2026-03-18', '2026-03-25', '2026-04-01', '2026-05-07', '2026-06-17', '2026-07-17', '2026-10-13'], 'ABB': ['2026-03-12', '2026-04-08', '2026-05-27', '2026-06-17', '2026-07-16', '2026-08-03', '2026-10-07', '2026-10-13'], 'WAAREEENER': ['2026-03-16', '2026-05-29', '2026-06-15', '2026-07-20', '2026-08-05', '2026-09-04', '2026-09-11', '2026-10-13'], 'HINDUNILVR': ['2026-02-26', '2026-04-06', '2026-06-11', '2026-07-01', '2026-07-22', '2026-09-16', '2026-10-13'], 'SHRIRAMFIN': ['2026-02-26', '2026-04-08', '2026-05-07', '2026-05-26', '2026-06-12', '2026-08-03', '2026-10-13'], 'ADANIENSOL': ['2026-03-18', '2026-04-08', '2026-05-27', '2026-07-06', '2026-09-18', '2026-10-01', '2026-10-13'], 'IRFC': ['2026-03-18', '2026-03-25', '2026-04-02', '2026-06-15', '2026-07-20', '2026-09-22', '2026-10-13'], 'KFINTECH': ['2026-03-18', '2026-03-24', '2026-05-27', '2026-07-10', '2026-07-27', '2026-08-17', '2026-10-13'], 'HDFCAMC': ['2026-04-06', '2026-06-16', '2026-08-10', '2026-08-19', '2026-09-23', '2026-10-07', '2026-10-13'], 'CROMPTON': ['2026-04-08', '2026-06-18', '2026-07-30', '2026-08-21', '2026-09-10', '2026-09-18', '2026-10-13'], 'LICI': ['2026-04-08', '2026-05-22', '2026-06-16', '2026-07-10', '2026-08-14', '2026-09-23', '2026-10-13'], 'ABCAPITAL': ['2026-04-06', '2026-05-26', '2026-06-16', '2026-08-03', '2026-09-21', '2026-10-13'], 'BAJAJFINSV': ['2026-04-07', '2026-05-05', '2026-05-25', '2026-06-16', '2026-07-28', '2026-10-13'], 'PRESTIGE': ['2026-04-07', '2026-06-15', '2026-08-24', '2026-09-28', '2026-09-30', '2026-10-13'], 'CANBK': ['2026-04-08', '2026-05-25', '2026-07-13', '2026-07-31', '2026-09-23', '2026-10-13'], 'COLPAL': ['2026-04-08', '2026-06-15', '2026-07-01', '2026-07-20', '2026-09-15', '2026-10-13'], 'SBIN': ['2026-04-08', '2026-05-06', '2026-05-29', '2026-07-20', '2026-08-04', '2026-10-13'], 'UNITDSPR': ['2026-04-10', '2026-05-27', '2026-06-12', '2026-07-24', '2026-09-24', '2026-10-13'], 'MAZDOCK': ['2026-03-06', '2026-04-07', '2026-06-16', '2026-07-31', '2026-10-13'], 'HAL': ['2026-03-10', '2026-04-06', '2026-06-17', '2026-07-10', '2026-10-13'], 'HCLTECH': ['2026-03-10', '2026-05-19', '2026-06-16', '2026-07-03', '2026-10-13'], 'SUZLON': ['2026-03-12', '2026-05-29', '2026-06-16', '2026-08-13', '2026-10-13'], 'CONCOR': ['2026-04-02', '2026-06-16', '2026-07-14', '2026-08-13', '2026-10-13'], 'BAJFINANCE': ['2026-04-06', '2026-06-15', '2026-07-17', '2026-07-31', '2026-10-13'], 'NIFTY': ['2026-04-06', '2026-05-25', '2026-06-15', '2026-07-31', '2026-10-13'], 'EICHERMOT': ['2026-04-08', '2026-05-25', '2026-06-10', '2026-07-17', '2026-10-13'], 'PIDILITIND': ['2026-04-08', '2026-06-12', '2026-07-06', '2026-07-29', '2026-10-13'], 'KPITTECH': ['2026-03-17', '2026-05-20', '2026-07-20', '2026-10-13'], 'KALYANKJIL': ['2026-03-25', '2026-06-02', '2026-07-09', '2026-10-13'], 'UNIONBANK': ['2026-04-08', '2026-05-25', '2026-07-15', '2026-10-13'], 'GODREJPROP': ['2026-04-06', '2026-06-16', '2026-10-13'], 'TMPV': ['2026-02-26', '2026-04-07', '2026-05-07', '2026-05-19', '2026-07-21', '2026-07-29', '2026-09-17', '2026-10-12'], 'DRREDDY': ['2026-03-11', '2026-04-20', '2026-05-15', '2026-06-22', '2026-08-05', '2026-09-11', '2026-09-17', '2026-10-12'], 'CAMS': ['2026-03-25', '2026-05-05', '2026-06-16', '2026-07-28', '2026-08-31', '2026-09-24', '2026-10-07', '2026-10-12'], 'LICHSGFIN': ['2026-03-30', '2026-06-12', '2026-06-24', '2026-07-20', '2026-07-29', '2026-08-25', '2026-09-21', '2026-10-12'], 'DELHIVERY': ['2026-02-26', '2026-03-25', '2026-05-07', '2026-06-16', '2026-08-27', '2026-10-12'], 'TATAELXSI': ['2026-03-20', '2026-05-08', '2026-05-20', '2026-07-14', '2026-07-27', '2026-10-12'], 'LTM': ['2026-03-12', '2026-06-01', '2026-06-17', '2026-07-07', '2026-10-12'], 'BDL': ['2026-04-07', '2026-06-16', '2026-08-06', '2026-10-12'], 'MANAPPURAM': ['2026-03-20', '2026-03-25', '2026-05-20', '2026-06-18', '2026-07-02', '2026-07-21', '2026-08-26', '2026-09-25', '2026-10-09'], 'BANKINDIA': ['2026-04-09', '2026-05-14', '2026-05-21', '2026-06-03', '2026-07-13', '2026-07-15', '2026-08-06', '2026-09-03', '2026-10-09'], 'VEDL': ['2026-02-25', '2026-04-07', '2026-05-04', '2026-07-22', '2026-08-21', '2026-09-24', '2026-10-07', '2026-10-09'], 'CUMMINSIND': ['2026-04-08', '2026-05-27', '2026-06-19', '2026-07-23', '2026-09-09', '2026-09-18', '2026-10-06', '2026-10-09'], 'RADICO': ['2026-03-06', '2026-04-06', '2026-04-08', '2026-06-18', '2026-07-29', '2026-09-23', '2026-10-09'], 'BANKNIFTY': ['2026-04-07', '2026-05-07', '2026-05-25', '2026-08-05', '2026-08-12', '2026-08-31', '2026-10-09'], 'NESTLEIND': ['2026-02-24', '2026-04-02', '2026-07-01', '2026-07-22', '2026-07-28', '2026-10-09'], 'FEDERALBNK': ['2026-02-25', '2026-04-02', '2026-05-08', '2026-06-02', '2026-07-20', '2026-10-09'], 'ICICIPRULI': ['2026-04-09', '2026-05-04', '2026-06-16', '2026-08-24', '2026-09-18', '2026-10-09'], 'BRITANNIA': ['2026-04-10', '2026-06-11', '2026-08-10', '2026-09-28', '2026-10-06', '2026-10-09'], 'PNB': ['2026-04-08', '2026-05-25', '2026-07-17', '2026-09-23', '2026-10-09'], 'INDIANB': ['2026-04-06', '2026-05-25', '2026-07-10', '2026-10-09'], 'SRF': ['2026-03-12', '2026-03-18', '2026-03-25', '2026-05-27', '2026-06-02', '2026-07-02', '2026-07-16', '2026-08-18', '2026-08-24', '2026-09-21', '2026-10-08'], 'PFC': ['2026-03-18', '2026-04-08', '2026-06-09', '2026-06-16', '2026-07-21', '2026-09-07', '2026-10-08'], 'MAHABANK': ['2026-04-06', '2026-06-10', '2026-08-11', '2026-09-25', '2026-10-08'], 'PNBHOUSING': ['2026-03-18', '2026-06-23', '2026-08-05', '2026-10-08'], 'SOLARINDS': ['2026-02-26', '2026-04-08', '2026-05-14', '2026-07-01', '2026-07-20', '2026-08-11', '2026-10-07'], 'NYKAA': ['2026-04-02', '2026-05-22', '2026-06-15', '2026-08-04', '2026-08-27', '2026-09-10', '2026-10-07'], 'HAVELLS': ['2026-04-09', '2026-05-08', '2026-05-27', '2026-06-15', '2026-07-17', '2026-08-14', '2026-10-07'], 'SUPREMEIND': ['2026-04-13', '2026-05-06', '2026-05-25', '2026-06-15', '2026-07-13', '2026-09-25', '2026-10-07'], 'ASTRAL': ['2026-04-15', '2026-05-07', '2026-05-14', '2026-05-25', '2026-06-16', '2026-07-16', '2026-10-07'], 'RECLTD': ['2026-03-18', '2026-04-06', '2026-06-05', '2026-07-22', '2026-09-08', '2026-10-07'], 'BHARTIARTL': ['2026-03-20', '2026-05-14', '2026-06-16', '2026-07-31', '2026-09-18', '2026-10-07'], 'ANGELONE': ['2026-03-18', '2026-05-22', '2026-06-18', '2026-08-17', '2026-10-07'], 'BHEL': ['2026-02-25', '2026-03-12', '2026-03-20', '2026-03-24', '2026-04-08', '2026-06-22', '2026-06-29', '2026-07-15', '2026-08-13', '2026-08-27', '2026-09-21', '2026-10-06'], '360ONE': ['2026-02-26', '2026-04-09', '2026-06-15', '2026-07-07', '2026-07-10', '2026-07-20', '2026-07-27', '2026-08-20', '2026-10-06'], 'ALKEM': ['2026-02-26', '2026-03-10', '2026-03-30', '2026-04-09', '2026-05-06', '2026-06-16', '2026-07-30', '2026-09-17', '2026-10-06'], 'BSE': ['2026-03-10', '2026-03-25', '2026-04-06', '2026-08-03', '2026-08-10', '2026-08-28', '2026-09-03', '2026-09-23', '2026-10-06'], 'COFORGE': ['2026-03-12', '2026-05-07', '2026-06-22', '2026-07-13', '2026-07-28', '2026-08-21', '2026-08-28', '2026-10-06'], 'HDFCLIFE': ['2026-04-08', '2026-06-17', '2026-07-16', '2026-07-29', '2026-08-17', '2026-09-04', '2026-09-17', '2026-10-06'], 'BLUESTARCO': ['2026-04-10', '2026-06-12', '2026-07-10', '2026-08-03', '2026-08-27', '2026-09-01', '2026-09-03', '2026-10-06'], 'TCS': ['2026-03-06', '2026-03-18', '2026-03-20', '2026-05-22', '2026-06-17', '2026-07-06', '2026-10-06'], 'MPHASIS': ['2026-03-11', '2026-03-18', '2026-05-21', '2026-07-07', '2026-07-28', '2026-08-03', '2026-10-06'], 'PREMIERENE': ['2026-03-11', '2026-05-29', '2026-07-10', '2026-08-07', '2026-08-21', '2026-08-31', '2026-10-06'], 'TATACONSUM': ['2026-04-06', '2026-06-25', '2026-07-02', '2026-07-20', '2026-07-22', '2026-09-17', '2026-10-06'], 'TRENT': ['2026-04-02', '2026-05-27', '2026-06-16', '2026-07-29', '2026-09-21', '2026-10-06'], 'AXISBANK': ['2026-04-06', '2026-05-25', '2026-06-08', '2026-08-04', '2026-08-17', '2026-10-06'], 'ICICIBANK': ['2026-04-07', '2026-05-25', '2026-06-04', '2026-07-17', '2026-08-31', '2026-10-06'], 'CGPOWER': ['2026-04-08', '2026-05-27', '2026-06-17', '2026-08-06', '2026-09-22', '2026-10-06'], 'LODHA': ['2026-04-08', '2026-05-27', '2026-06-16', '2026-07-28', '2026-09-25', '2026-10-06'], 'POLYCAB': ['2026-04-08', '2026-06-19', '2026-08-03', '2026-08-31', '2026-09-22', '2026-10-06'], 'MOTILALOFS': ['2026-03-27', '2026-04-01', '2026-06-15', '2026-08-12', '2026-10-06'], 'KOTAKBANK': ['2026-04-06', '2026-06-11', '2026-07-24', '2026-08-20', '2026-10-06'], 'PETRONET': ['2026-04-08', '2026-05-25', '2026-06-15', '2026-07-30', '2026-10-06'], 'WIPRO': ['2026-03-09', '2026-05-21', '2026-07-06', '2026-10-06'], 'PGEL': ['2026-04-10', '2026-06-02', '2026-10-06'], 'INDUSTOWER': ['2026-04-08', '2026-04-30', '2026-05-06', '2026-07-10', '2026-08-03', '2026-08-17', '2026-08-25', '2026-10-05'], 'BANKBARODA': ['2026-04-08', '2026-05-21', '2026-06-09', '2026-07-27', '2026-07-30', '2026-09-22', '2026-10-05'], 'PERSISTENT': ['2026-03-10', '2026-05-11', '2026-05-19', '2026-07-07', '2026-08-28', '2026-10-05'], 'INFY': ['2026-03-05', '2026-05-19', '2026-07-07', '2026-10-05'], 'POWERINDIA': ['2026-04-09', '2026-05-21', '2026-06-22', '2026-07-16', '2026-07-31', '2026-09-21', '2026-10-01'], 'SUNPHARMA': ['2026-04-27', '2026-06-18', '2026-07-28', '2026-08-31', '2026-09-29'], 'KAYNES': ['2026-04-06', '2026-05-07', '2026-06-10', '2026-07-29', '2026-08-25', '2026-09-25'], 'KEI': ['2026-04-08', '2026-05-25', '2026-06-17', '2026-08-03', '2026-09-25'], 'JINDALSTEL': ['2026-02-25', '2026-04-08', '2026-07-10', '2026-09-24'], 'VMM': ['2026-02-24', '2026-03-25', '2026-07-02', '2026-07-10', '2026-08-04', '2026-08-24', '2026-09-23'], 'MUTHOOTFIN': ['2026-03-16', '2026-03-25', '2026-06-16', '2026-07-06', '2026-07-21', '2026-08-20', '2026-09-23'], 'SHREECEM': ['2026-02-25', '2026-03-25', '2026-05-07', '2026-05-26', '2026-06-16', '2026-09-23'], 'TORNTPHARM': ['2026-03-11', '2026-04-17', '2026-06-11', '2026-06-29', '2026-08-28', '2026-09-23'], 'OBEROIRLTY': ['2026-03-25', '2026-05-26', '2026-06-16', '2026-08-17', '2026-09-03', '2026-09-23'], 'FORTIS': ['2026-04-07', '2026-06-09', '2026-07-15', '2026-08-25', '2026-09-23'], 'SONACOMS': ['2026-04-06', '2026-05-27', '2026-06-22', '2026-09-23'], 'ETERNAL': ['2026-03-18', '2026-05-07', '2026-05-27', '2026-06-16', '2026-07-28', '2026-08-21', '2026-09-22'], 'SWIGGY': ['2026-03-18', '2026-04-06', '2026-05-27', '2026-06-12', '2026-07-02', '2026-07-29', '2026-09-22'], 'RBLBANK': ['2026-04-01', '2026-05-26', '2026-07-14', '2026-07-30', '2026-09-03', '2026-09-18', '2026-09-22'], 'INDIGO': ['2026-02-25', '2026-04-01', '2026-05-22', '2026-08-05', '2026-09-22'], 'BIOCON': ['2026-04-20', '2026-07-14', '2026-09-22'], 'BPCL': ['2026-02-26', '2026-04-07', '2026-05-22', '2026-06-12', '2026-07-07', '2026-07-17', '2026-07-27', '2026-08-28', '2026-09-21'], 'LAURUSLABS': ['2026-03-30', '2026-05-04', '2026-06-05', '2026-06-29', '2026-07-13', '2026-07-27', '2026-08-28', '2026-09-11', '2026-09-21'], 'MANKIND': ['2026-02-24', '2026-04-08', '2026-06-22', '2026-07-21', '2026-07-28', '2026-08-27', '2026-09-21'], 'ZYDUSLIFE': ['2026-03-10', '2026-04-09', '2026-05-07', '2026-07-06', '2026-08-11', '2026-08-27', '2026-09-21'], 'ICICIGI': ['2026-04-09', '2026-05-07', '2026-05-22', '2026-06-17', '2026-07-08', '2026-08-03', '2026-09-21'], 'CIPLA': ['2026-04-09', '2026-06-23', '2026-07-29', '2026-09-21'], 'IOC': ['2026-02-25', '2026-04-08', '2026-05-22', '2026-06-12', '2026-07-17', '2026-07-27', '2026-08-03', '2026-09-04', '2026-09-18'], 'AUROPHARMA': ['2026-02-25', '2026-03-25', '2026-05-06', '2026-06-22', '2026-08-05', '2026-08-31', '2026-09-08', '2026-09-18'], 'PAYTM': ['2026-03-18', '2026-05-07', '2026-06-15', '2026-08-03', '2026-09-11', '2026-09-16', '2026-09-18'], 'MFSL': ['2026-04-09', '2026-05-06', '2026-05-22', '2026-06-17', '2026-07-13', '2026-08-04', '2026-09-18'], 'APOLLOHOSP': ['2026-04-10', '2026-06-09', '2026-06-29', '2026-07-15', '2026-08-31', '2026-09-09', '2026-09-18'], 'DMART': ['2026-03-09', '2026-03-27', '2026-06-16', '2026-07-24', '2026-08-03', '2026-09-18'], 'ADANIENT': ['2026-04-07', '2026-07-03', '2026-08-25', '2026-09-09', '2026-09-18'], 'ENRIN': ['2026-04-10', '2026-05-21', '2026-06-19', '2026-08-05', '2026-09-18'], 'TATASTEEL': ['2026-02-25', '2026-04-01', '2026-05-07', '2026-05-14', '2026-07-08', '2026-08-25', '2026-09-04', '2026-09-17'], 'GMRAIRPORT': ['2026-04-06', '2026-05-29', '2026-09-08', '2026-09-17'], 'SBILIFE': ['2026-04-08', '2026-05-07', '2026-06-17', '2026-09-17'], 'GODREJCP': ['2026-04-06', '2026-05-05', '2026-05-27', '2026-06-10', '2026-08-03', '2026-09-15'], 'DABUR': ['2026-02-24', '2026-04-08', '2026-06-16', '2026-09-15'], 'VBL': ['2026-04-02', '2026-05-22', '2026-08-06', '2026-09-09'], 'DIVISLAB': ['2026-04-10', '2026-06-19', '2026-07-06', '2026-08-27', '2026-09-08'], 'GAIL': ['2026-04-06', '2026-05-26', '2026-06-04', '2026-07-29', '2026-08-12', '2026-08-31', '2026-09-07'], 'BANDHANBNK': ['2026-04-09', '2026-06-01', '2026-06-16', '2026-07-14', '2026-08-10', '2026-09-07'], 'YESBANK': ['2026-02-26', '2026-04-06', '2026-05-29', '2026-06-17', '2026-08-12', '2026-08-31', '2026-09-03'], 'ONGC': ['2026-03-02', '2026-03-27', '2026-04-28', '2026-05-14', '2026-07-03', '2026-08-13', '2026-08-17', '2026-09-02'], 'ADANIPORTS': ['2026-02-23', '2026-04-02', '2026-07-03', '2026-08-18', '2026-09-02'], 'ADANIGREEN': ['2026-04-02', '2026-08-25', '2026-09-02'], 'PAGEIND': ['2026-03-18', '2026-05-20', '2026-06-16', '2026-09-01'], 'OIL': ['2026-03-04', '2026-04-02', '2026-04-07', '2026-04-24', '2026-05-13', '2026-07-01', '2026-08-11', '2026-08-31'], 'GRASIM': ['2026-04-06', '2026-08-03', '2026-08-31'], 'MAXHEALTH': ['2026-04-10', '2026-06-10', '2026-08-28'], 'GVT&D': ['2026-02-25', '2026-04-09', '2026-05-22', '2026-06-18', '2026-08-03', '2026-08-26'], 'LTF': ['2026-04-07', '2026-06-15', '2026-08-05', '2026-08-18', '2026-08-26'], 'SIEMENS': ['2026-04-08', '2026-05-29', '2026-06-18', '2026-07-16', '2026-08-25'], 'COALINDIA': ['2026-02-25', '2026-04-24', '2026-06-01', '2026-07-20', '2026-08-06', '2026-08-24'], 'JSWSTEEL': ['2026-02-26', '2026-04-07', '2026-06-03', '2026-07-13', '2026-08-24'], 'HINDALCO': ['2026-03-05', '2026-04-06', '2026-05-22', '2026-07-08', '2026-08-24'], 'NMDC': ['2026-04-02', '2026-06-02', '2026-07-14', '2026-07-24', '2026-08-24'], 'POWERGRID': ['2026-04-13', '2026-06-15', '2026-07-13', '2026-07-17', '2026-08-24'], 'DIXON': ['2026-03-11', '2026-04-01', '2026-04-06', '2026-05-22', '2026-06-15', '2026-07-06', '2026-08-21'], 'HINDZINC': ['2026-02-27', '2026-04-06', '2026-07-06', '2026-08-21'], 'IDEA': ['2026-04-07', '2026-08-12'], 'MCX': ['2026-02-27', '2026-04-07', '2026-06-29', '2026-07-14', '2026-08-10'], 'BOSCHLTD': ['2026-02-25', '2026-04-01', '2026-06-03', '2026-06-09', '2026-08-07'], 'TIINDIA': ['2026-04-07', '2026-05-26', '2026-06-15', '2026-08-07'], 'GLENMARK': ['2026-04-13', '2026-06-22', '2026-08-05'], 'PATANJALI': ['2026-04-07', '2026-05-15', '2026-06-30', '2026-07-30'], 'UNOMINDA': ['2026-02-25', '2026-03-25', '2026-05-06', '2026-05-27', '2026-06-15', '2026-07-02', '2026-07-29'], 'LT': ['2026-04-01', '2026-05-26', '2026-06-15', '2026-07-29'], 'JUBLFOOD': ['2026-04-06', '2026-04-10', '2026-05-20', '2026-06-16', '2026-07-28'], 'IDFCFIRSTB': ['2026-03-25', '2026-05-26', '2026-07-27'], 'SAIL': ['2026-02-26', '2026-04-01', '2026-05-13', '2026-07-14'], 'NATIONALUM': ['2026-03-04', '2026-04-02', '2026-05-27', '2026-07-08'], 'APLAPOLLO': ['2026-04-08', '2026-05-25', '2026-06-09', '2026-06-12', '2026-07-06'], 'TITAN': ['2026-04-06', '2026-06-04', '2026-06-12']}
+    _macd_crossdown_fallback = {'ICICIPRULI': ['2026-03-04', '2026-04-30', '2026-05-18', '2026-08-07', '2026-09-01', '2026-09-25', '2026-10-16'],
+ 'NHPC': ['2026-05-07', '2026-07-14', '2026-07-24', '2026-09-02', '2026-09-17', '2026-09-28', '2026-10-16'],
+ 'NESTLEIND': ['2026-03-02', '2026-05-13', '2026-07-14', '2026-07-27', '2026-08-12', '2026-10-16'],
+ 'MAHABANK': ['2026-03-06', '2026-05-12', '2026-07-03', '2026-09-15', '2026-09-28', '2026-10-16'],
+ 'VBL': ['2026-03-04', '2026-05-11', '2026-05-29', '2026-08-28', '2026-10-16'],
+ 'CUMMINSIND': ['2026-03-05',
+                '2026-05-11',
+                '2026-06-09',
+                '2026-06-22',
+                '2026-07-28',
+                '2026-09-15',
+                '2026-09-28',
+                '2026-10-08',
+                '2026-10-15'],
+ 'LICHSGFIN': ['2026-03-06',
+               '2026-05-14',
+               '2026-06-23',
+               '2026-07-07',
+               '2026-07-22',
+               '2026-07-30',
+               '2026-09-18',
+               '2026-09-29',
+               '2026-10-15'],
+ 'ALKEM': ['2026-03-09', '2026-03-12', '2026-04-01', '2026-04-27', '2026-05-18', '2026-07-22', '2026-08-04', '2026-10-05', '2026-10-15'],
+ 'OFSS': ['2026-03-17', '2026-03-19', '2026-05-11', '2026-05-29', '2026-06-03', '2026-07-21', '2026-08-13', '2026-09-07', '2026-10-15'],
+ 'POWERINDIA': ['2026-03-09', '2026-05-11', '2026-06-02', '2026-06-23', '2026-07-17', '2026-08-24', '2026-09-24', '2026-10-15'],
+ 'PAGEIND': ['2026-04-29', '2026-06-01', '2026-07-09', '2026-10-15'],
+ 'VEDL': ['2026-03-09', '2026-04-24', '2026-06-02', '2026-08-19', '2026-09-03', '2026-09-28', '2026-10-08', '2026-10-14'],
+ 'ITC': ['2026-03-06', '2026-05-12', '2026-05-22', '2026-07-08', '2026-08-11', '2026-10-08', '2026-10-12'],
+ 'INDIGO': ['2026-02-24', '2026-02-27', '2026-04-29', '2026-07-08', '2026-08-10', '2026-10-12'],
+ 'ENRIN': ['2026-03-09', '2026-05-07', '2026-06-08', '2026-06-25', '2026-08-25', '2026-10-12'],
+ 'ADANIENSOL': ['2026-02-27', '2026-03-23', '2026-05-07', '2026-06-11', '2026-07-24', '2026-09-28', '2026-10-09'],
+ 'MANKIND': ['2026-03-16', '2026-05-25', '2026-07-13', '2026-07-22', '2026-07-31', '2026-09-04', '2026-10-09'],
+ 'UJJIVANSFB': ['2026-04-28', '2026-05-12', '2026-08-05', '2026-09-24', '2026-09-28', '2026-10-09'],
+ 'INDHOTEL': ['2026-02-23',
+              '2026-05-12',
+              '2026-05-29',
+              '2026-06-11',
+              '2026-07-09',
+              '2026-07-14',
+              '2026-08-05',
+              '2026-09-04',
+              '2026-09-28',
+              '2026-10-08'],
+ 'ASIANPAINT': ['2026-03-05',
+                '2026-03-23',
+                '2026-05-04',
+                '2026-05-21',
+                '2026-06-01',
+                '2026-06-17',
+                '2026-08-11',
+                '2026-09-24',
+                '2026-10-08'],
+ 'CAMS': ['2026-02-24', '2026-05-04', '2026-05-14', '2026-07-01', '2026-08-12', '2026-09-02', '2026-09-28', '2026-10-08'],
+ 'ABB': ['2026-03-02', '2026-03-19', '2026-05-04', '2026-06-10', '2026-06-25', '2026-07-29', '2026-08-17', '2026-10-08'],
+ 'DRREDDY': ['2026-03-09', '2026-03-13', '2026-05-11', '2026-05-29', '2026-07-09', '2026-09-03', '2026-09-16', '2026-10-08'],
+ 'HDFCAMC': ['2026-02-23', '2026-05-11', '2026-07-14', '2026-08-11', '2026-09-02', '2026-09-24', '2026-10-08'],
+ 'LODHA': ['2026-02-25', '2026-05-13', '2026-06-02', '2026-07-23', '2026-08-03', '2026-09-28', '2026-10-08'],
+ 'CGPOWER': ['2026-03-04', '2026-05-13', '2026-06-09', '2026-06-24', '2026-09-15', '2026-09-24', '2026-10-08'],
+ 'BRITANNIA': ['2026-03-02', '2026-05-11', '2026-08-06', '2026-08-18', '2026-09-29', '2026-10-08'],
+ 'HINDPETRO': ['2026-05-15', '2026-06-03', '2026-07-01', '2026-07-08', '2026-07-23', '2026-10-08'],
+ 'SBILIFE': ['2026-03-02', '2026-04-24', '2026-06-01', '2026-08-07', '2026-10-08'],
+ 'DLF': ['2026-05-12', '2026-06-01', '2026-07-16', '2026-09-02', '2026-10-08'],
+ 'PRESTIGE': ['2026-05-13', '2026-07-16', '2026-09-01', '2026-09-29', '2026-10-08'],
+ 'IREDA': ['2026-02-27', '2026-05-07', '2026-07-08', '2026-08-12', '2026-09-02', '2026-10-07'],
+ 'ULTRACEMCO': ['2026-05-12', '2026-07-31', '2026-08-11', '2026-10-07'],
+ 'PHOENIXLTD': ['2026-02-24', '2026-03-20', '2026-05-04', '2026-05-11', '2026-07-17', '2026-09-01', '2026-09-09', '2026-10-06'],
+ 'COALINDIA': ['2026-03-24', '2026-05-12', '2026-06-10', '2026-07-28', '2026-08-19', '2026-10-06'],
+ 'HDFCBANK': ['2026-02-24', '2026-05-12', '2026-05-20', '2026-06-01', '2026-07-16', '2026-09-02', '2026-09-09', '2026-10-05'],
+ 'PIIND': ['2026-03-09', '2026-03-11', '2026-05-12', '2026-05-20', '2026-06-25', '2026-08-12', '2026-09-11', '2026-10-05'],
+ 'ZYDUSLIFE': ['2026-03-09', '2026-03-13', '2026-04-29', '2026-06-10', '2026-07-13', '2026-08-18', '2026-09-04', '2026-10-05'],
+ 'BANDHANBNK': ['2026-03-09', '2026-05-14', '2026-06-05', '2026-06-22', '2026-07-22', '2026-09-01', '2026-10-05'],
+ 'DMART': ['2026-03-16', '2026-04-24', '2026-07-03', '2026-07-28', '2026-08-21', '2026-10-05'],
+ 'IRFC': ['2026-03-20', '2026-03-30', '2026-05-11', '2026-06-25', '2026-08-18', '2026-10-05'],
+ 'LUPIN': ['2026-03-16', '2026-04-21', '2026-05-11', '2026-07-17', '2026-10-05'],
+ 'SONACOMS': ['2026-05-05', '2026-06-04', '2026-08-14', '2026-10-05'],
+ 'TATASTEEL': ['2026-02-23',
+               '2026-03-02',
+               '2026-05-05',
+               '2026-05-08',
+               '2026-05-18',
+               '2026-08-14',
+               '2026-09-02',
+               '2026-09-15',
+               '2026-10-01'],
+ 'MANAPPURAM': ['2026-02-25',
+                '2026-03-23',
+                '2026-05-18',
+                '2026-06-01',
+                '2026-07-01',
+                '2026-07-15',
+                '2026-08-07',
+                '2026-08-27',
+                '2026-10-01'],
+ 'BLUESTARCO': ['2026-02-25', '2026-05-06', '2026-07-03', '2026-07-23', '2026-08-05', '2026-08-31', '2026-09-02', '2026-10-01'],
+ 'KAYNES': ['2026-03-02', '2026-04-30', '2026-05-12', '2026-07-23', '2026-08-14', '2026-08-31', '2026-10-01'],
+ 'RVNL': ['2026-03-04', '2026-03-30', '2026-05-11', '2026-07-09', '2026-08-19', '2026-08-21', '2026-10-01'],
+ 'SUPREMEIND': ['2026-03-04', '2026-04-16', '2026-05-12', '2026-06-11', '2026-06-29', '2026-08-31', '2026-10-01'],
+ 'VMM': ['2026-03-04', '2026-05-08', '2026-07-08', '2026-07-13', '2026-08-14', '2026-09-07', '2026-10-01'],
+ 'BHARATFORG': ['2026-03-09', '2026-05-05', '2026-05-15', '2026-07-07', '2026-07-23', '2026-08-10', '2026-10-01'],
+ 'MARUTI': ['2026-03-02', '2026-05-13', '2026-06-01', '2026-07-10', '2026-08-12', '2026-10-01'],
+ 'POLYCAB': ['2026-03-10', '2026-06-01', '2026-06-23', '2026-08-21', '2026-09-01', '2026-10-01'],
+ 'ADANIPORTS': ['2026-02-25', '2026-05-19', '2026-07-07', '2026-09-01', '2026-10-01'],
+ 'PATANJALI': ['2026-02-27', '2026-05-12', '2026-06-01', '2026-07-15', '2026-10-01'],
+ 'GMRAIRPORT': ['2026-03-04', '2026-05-12', '2026-07-09', '2026-09-16', '2026-10-01'],
+ 'CIPLA': ['2026-03-16', '2026-05-29', '2026-07-09', '2026-08-13', '2026-10-01'],
+ 'HEROMOTOCO': ['2026-03-06', '2026-03-12', '2026-04-24', '2026-05-15', '2026-05-29', '2026-06-29', '2026-08-19', '2026-09-30'],
+ 'OBEROIRLTY': ['2026-03-04', '2026-04-30', '2026-06-03', '2026-07-16', '2026-09-02', '2026-09-04', '2026-09-30'],
+ 'POWERGRID': ['2026-02-27', '2026-05-06', '2026-07-08', '2026-07-16', '2026-08-05', '2026-09-30'],
+ 'UNITDSPR': ['2026-02-27', '2026-05-06', '2026-05-29', '2026-07-14', '2026-08-13', '2026-09-30'],
+ 'COLPAL': ['2026-03-05', '2026-05-13', '2026-06-19', '2026-07-15', '2026-08-04', '2026-09-30'],
+ 'SUNPHARMA': ['2026-03-18', '2026-05-25', '2026-07-24', '2026-08-03', '2026-09-04', '2026-09-30'],
+ 'VOLTAS': ['2026-03-02', '2026-05-06', '2026-06-30', '2026-07-24', '2026-09-30'],
+ 'LAURUSLABS': ['2026-03-09',
+                '2026-04-28',
+                '2026-06-02',
+                '2026-06-08',
+                '2026-07-08',
+                '2026-07-17',
+                '2026-08-14',
+                '2026-09-01',
+                '2026-09-15',
+                '2026-09-29'],
+ 'SRF': ['2026-03-16',
+         '2026-03-23',
+         '2026-05-19',
+         '2026-06-01',
+         '2026-06-03',
+         '2026-07-09',
+         '2026-07-23',
+         '2026-08-20',
+         '2026-09-08',
+         '2026-09-29'],
+ 'IOC': ['2026-03-04', '2026-05-12', '2026-06-08', '2026-06-30', '2026-07-24', '2026-07-30', '2026-08-12', '2026-09-07', '2026-09-29'],
+ 'ONGC': ['2026-03-04', '2026-04-20', '2026-05-06', '2026-05-22', '2026-07-29', '2026-08-14', '2026-08-25', '2026-09-29'],
+ 'APOLLOHOSP': ['2026-03-06', '2026-06-01', '2026-06-16', '2026-07-13', '2026-07-16', '2026-09-01', '2026-09-16', '2026-09-29'],
+ 'NBCC': ['2026-03-23', '2026-03-30', '2026-05-13', '2026-06-25', '2026-08-13', '2026-08-31', '2026-09-09', '2026-09-29'],
+ 'LICI': ['2026-02-27', '2026-05-04', '2026-06-03', '2026-07-06', '2026-07-14', '2026-09-07', '2026-09-29'],
+ 'RADICO': ['2026-02-27', '2026-03-20', '2026-04-07', '2026-05-13', '2026-07-15', '2026-08-21', '2026-09-29'],
+ 'TORNTPHARM': ['2026-03-06', '2026-03-13', '2026-06-01', '2026-06-17', '2026-07-24', '2026-09-03', '2026-09-29'],
+ 'ETERNAL': ['2026-05-05', '2026-05-11', '2026-06-10', '2026-07-20', '2026-08-12', '2026-08-26', '2026-09-29'],
+ 'GODFRYPHLP': ['2026-03-02', '2026-05-20', '2026-06-23', '2026-07-23', '2026-08-14', '2026-09-29'],
+ 'HINDUNILVR': ['2026-03-02', '2026-05-08', '2026-06-30', '2026-07-09', '2026-07-28', '2026-09-29'],
+ 'TATAPOWER': ['2026-03-02', '2026-03-24', '2026-05-06', '2026-06-24', '2026-08-21', '2026-09-29'],
+ 'MARICO': ['2026-03-04', '2026-05-22', '2026-07-16', '2026-07-24', '2026-08-05', '2026-09-29'],
+ 'PFC': ['2026-03-19', '2026-04-30', '2026-06-11', '2026-07-06', '2026-08-10', '2026-09-29'],
+ 'JINDALSTEL': ['2026-02-23', '2026-03-02', '2026-04-30', '2026-09-07', '2026-09-29'],
+ 'RECLTD': ['2026-03-23', '2026-04-30', '2026-07-07', '2026-08-06', '2026-09-29'],
+ 'JIOFIN': ['2026-03-02',
+            '2026-03-30',
+            '2026-05-11',
+            '2026-06-03',
+            '2026-06-30',
+            '2026-07-08',
+            '2026-07-14',
+            '2026-07-22',
+            '2026-08-14',
+            '2026-09-28'],
+ 'BPCL': ['2026-03-02', '2026-05-11', '2026-06-08', '2026-07-01', '2026-07-08', '2026-07-24', '2026-08-10', '2026-09-07', '2026-09-28'],
+ 'NTPC': ['2026-03-04', '2026-05-05', '2026-07-09', '2026-07-15', '2026-08-11', '2026-08-17', '2026-08-27', '2026-09-18', '2026-09-28'],
+ 'INDUSTOWER': ['2026-02-25', '2026-04-16', '2026-05-04', '2026-06-05', '2026-07-27', '2026-08-05', '2026-08-18', '2026-09-28'],
+ 'RBLBANK': ['2026-03-02', '2026-05-13', '2026-06-29', '2026-07-15', '2026-08-17', '2026-09-17', '2026-09-21', '2026-09-28'],
+ 'HDFCLIFE': ['2026-03-04', '2026-06-01', '2026-07-03', '2026-07-22', '2026-07-30', '2026-09-03', '2026-09-07', '2026-09-28'],
+ 'AUROPHARMA': ['2026-03-24', '2026-04-29', '2026-05-22', '2026-07-13', '2026-08-19', '2026-09-03', '2026-09-15', '2026-09-28'],
+ 'TATACONSUM': ['2026-03-02', '2026-05-20', '2026-06-30', '2026-07-16', '2026-07-21', '2026-08-12', '2026-09-28'],
+ 'BANKBARODA': ['2026-03-05', '2026-04-30', '2026-06-08', '2026-06-30', '2026-07-28', '2026-08-25', '2026-09-28'],
+ 'MUTHOOTFIN': ['2026-03-24', '2026-04-29', '2026-07-01', '2026-07-20', '2026-08-04', '2026-09-02', '2026-09-28'],
+ 'CANBK': ['2026-03-05', '2026-04-30', '2026-06-24', '2026-07-30', '2026-08-24', '2026-09-28'],
+ 'AMBUJACEM': ['2026-05-05', '2026-05-08', '2026-06-03', '2026-07-23', '2026-08-10', '2026-09-28'],
+ 'INOXWIND': ['2026-05-11', '2026-07-07', '2026-08-13', '2026-08-31', '2026-09-28'],
+ 'MAXHEALTH': ['2026-03-04', '2026-05-25', '2026-07-08', '2026-09-28'],
+ 'BIOCON': ['2026-03-13', '2026-06-01', '2026-07-29', '2026-09-28'],
+ 'YESBANK': ['2026-02-23', '2026-02-27', '2026-05-20', '2026-06-04', '2026-06-30', '2026-08-26', '2026-09-01', '2026-09-25'],
+ 'TMPV': ['2026-02-24', '2026-03-02', '2026-05-04', '2026-05-11', '2026-06-10', '2026-07-22', '2026-08-18', '2026-09-25'],
+ 'CROMPTON': ['2026-02-27', '2026-05-21', '2026-07-07', '2026-08-10', '2026-08-25', '2026-09-16', '2026-09-25'],
+ 'ABCAPITAL': ['2026-03-02', '2026-05-12', '2026-06-01', '2026-07-14', '2026-08-10', '2026-09-25'],
+ 'ANGELONE': ['2026-04-30', '2026-06-03', '2026-06-23', '2026-09-25'],
+ 'SWIGGY': ['2026-02-25', '2026-03-23', '2026-05-11', '2026-06-08', '2026-06-25', '2026-07-24', '2026-08-11', '2026-09-24'],
+ 'MFSL': ['2026-03-02', '2026-04-30', '2026-05-15', '2026-06-02', '2026-06-30', '2026-07-16', '2026-09-02', '2026-09-24'],
+ 'JSWENERGY': ['2026-03-04', '2026-03-23', '2026-05-11', '2026-06-09', '2026-07-01', '2026-07-28', '2026-08-17', '2026-09-24'],
+ 'BSE': ['2026-03-23', '2026-03-27', '2026-05-29', '2026-08-06', '2026-08-17', '2026-09-02', '2026-09-21', '2026-09-24'],
+ 'BHARTIARTL': ['2026-02-24', '2026-05-07', '2026-05-29', '2026-07-24', '2026-08-10', '2026-09-24'],
+ 'TRENT': ['2026-02-24', '2026-05-04', '2026-05-29', '2026-07-07', '2026-08-13', '2026-09-24'],
+ 'BAJAJHLDNG': ['2026-02-27', '2026-05-12', '2026-05-29', '2026-07-08', '2026-08-18', '2026-09-24'],
+ 'ADANIENT': ['2026-03-02', '2026-06-08', '2026-07-07', '2026-09-01', '2026-09-16', '2026-09-24'],
+ 'FORTIS': ['2026-03-06', '2026-05-18', '2026-06-17', '2026-07-16', '2026-09-11', '2026-09-24'],
+ 'PNB': ['2026-03-04', '2026-05-04', '2026-06-30', '2026-08-21', '2026-09-24'],
+ 'PAYTM': ['2026-02-27', '2026-04-29', '2026-05-13', '2026-07-22', '2026-09-01', '2026-09-15', '2026-09-17', '2026-09-23'],
+ 'ADANIPOWER': ['2026-05-11', '2026-06-02', '2026-08-12', '2026-09-16', '2026-09-23'],
+ 'FORCEMOT': ['2026-02-27',
+              '2026-04-23',
+              '2026-05-12',
+              '2026-05-18',
+              '2026-06-01',
+              '2026-07-14',
+              '2026-07-21',
+              '2026-08-19',
+              '2026-09-09',
+              '2026-09-16',
+              '2026-09-22'],
+ 'BHEL': ['2026-03-04',
+          '2026-03-19',
+          '2026-03-23',
+          '2026-03-30',
+          '2026-05-18',
+          '2026-06-23',
+          '2026-07-03',
+          '2026-07-28',
+          '2026-08-21',
+          '2026-09-07',
+          '2026-09-22'],
+ 'GVT&D': ['2026-02-24', '2026-03-02', '2026-05-11', '2026-06-08', '2026-06-25', '2026-08-19', '2026-09-17'],
+ 'WAAREEENER': ['2026-04-24', '2026-06-10', '2026-06-29', '2026-07-21', '2026-09-01', '2026-09-08', '2026-09-16'],
+ 'GAIL': ['2026-03-04', '2026-05-11', '2026-06-03', '2026-06-29', '2026-08-07', '2026-08-13', '2026-09-01', '2026-09-15'],
+ 'OIL': ['2026-03-05', '2026-04-06', '2026-04-08', '2026-05-06', '2026-05-26', '2026-08-07', '2026-08-26', '2026-09-15'],
+ 'NYKAA': ['2026-02-23', '2026-05-12', '2026-05-25', '2026-07-17', '2026-08-05', '2026-09-03', '2026-09-15'],
+ 'SBICARD': ['2026-03-04', '2026-04-30', '2026-06-03', '2026-07-08', '2026-08-11', '2026-08-27', '2026-09-15'],
+ 'SOLARINDS': ['2026-03-16', '2026-05-13', '2026-06-02', '2026-07-08', '2026-07-27', '2026-09-15'],
+ 'UPL': ['2026-02-23', '2026-05-12', '2026-06-05', '2026-08-04', '2026-09-15'],
+ 'IDEA': ['2026-06-08', '2026-09-15'],
+ 'COCHINSHIP': ['2026-03-02', '2026-03-12', '2026-05-12', '2026-07-09', '2026-09-01', '2026-09-11'],
+ 'DELHIVERY': ['2026-02-27', '2026-04-24', '2026-05-12', '2026-07-16', '2026-09-11'],
+ 'AXISBANK': ['2026-03-02', '2026-04-28', '2026-06-04', '2026-07-02', '2026-08-14', '2026-09-10'],
+ 'DIVISLAB': ['2026-03-12', '2026-05-25', '2026-06-29', '2026-08-18', '2026-09-04', '2026-09-10'],
+ 'MOTILALOFS': ['2026-02-24', '2026-03-30', '2026-05-14', '2026-07-06', '2026-09-10'],
+ 'SAGILITY': ['2026-04-28', '2026-05-18', '2026-07-24', '2026-08-11', '2026-09-10'],
+ 'SUZLON': ['2026-05-07', '2026-06-01', '2026-06-29', '2026-09-10'],
+ 'CDSL': ['2026-02-26', '2026-03-23', '2026-03-30', '2026-04-29', '2026-06-11', '2026-07-08', '2026-07-21', '2026-08-19', '2026-09-09'],
+ 'KOTAKBANK': ['2026-02-27', '2026-06-01', '2026-06-30', '2026-08-18', '2026-09-09'],
+ 'GLENMARK': ['2026-03-19', '2026-05-11', '2026-07-22', '2026-09-09'],
+ 'RELIANCE': ['2026-02-25', '2026-03-27', '2026-05-13', '2026-07-09', '2026-07-23', '2026-08-24', '2026-09-08'],
+ 'AMBER': ['2026-03-04', '2026-05-13', '2026-06-11', '2026-06-29', '2026-07-22', '2026-08-10', '2026-09-08'],
+ 'MCX': ['2026-03-20', '2026-05-25', '2026-07-06', '2026-07-24', '2026-09-08'],
+ 'SAIL': ['2026-03-04', '2026-05-11', '2026-06-03', '2026-09-08'],
+ 'BANKINDIA': ['2026-03-04',
+               '2026-04-30',
+               '2026-05-19',
+               '2026-06-02',
+               '2026-06-29',
+               '2026-07-14',
+               '2026-07-27',
+               '2026-09-01',
+               '2026-09-07'],
+ 'ATHERENERG': ['2026-02-25', '2026-05-06', '2026-06-16', '2026-07-23', '2026-08-19', '2026-09-07'],
+ 'POLICYBZR': ['2026-04-02', '2026-05-11', '2026-05-29', '2026-07-08', '2026-09-07'],
+ 'COFORGE': ['2026-04-24', '2026-06-08', '2026-06-30', '2026-07-20', '2026-08-18', '2026-08-26', '2026-09-04'],
+ 'ICICIBANK': ['2026-04-29', '2026-06-02', '2026-07-09', '2026-07-24', '2026-09-04'],
+ 'BAJAJ-AUTO': ['2026-03-02', '2026-04-29', '2026-05-18', '2026-05-22', '2026-05-29', '2026-08-13', '2026-09-03'],
+ 'BEL': ['2026-03-04', '2026-03-13', '2026-04-28', '2026-06-11', '2026-07-09', '2026-09-03'],
+ 'PETRONET': ['2026-03-04', '2026-05-12', '2026-06-02', '2026-06-30', '2026-09-03'],
+ 'APLAPOLLO': ['2026-04-28', '2026-05-29', '2026-06-10', '2026-07-01', '2026-09-03'],
+ 'NMDC': ['2026-05-05', '2026-06-08', '2026-07-23', '2026-08-19', '2026-09-03'],
+ 'JSWSTEEL': ['2026-03-04', '2026-05-11', '2026-06-04', '2026-08-13', '2026-09-02'],
+ 'HINDZINC': ['2026-03-06', '2026-05-19', '2026-08-18', '2026-09-02'],
+ 'DIXON': ['2026-02-23', '2026-03-30', '2026-04-02', '2026-05-07', '2026-06-04', '2026-06-25', '2026-07-24', '2026-09-01'],
+ 'PREMIERENE': ['2026-02-26', '2026-04-23', '2026-06-12', '2026-07-21', '2026-08-14', '2026-08-26', '2026-09-01'],
+ 'BANKNIFTY': ['2026-02-27', '2026-05-04', '2026-05-08', '2026-07-07', '2026-08-11', '2026-08-13', '2026-09-01'],
+ 'BOSCHLTD': ['2026-03-04', '2026-04-29', '2026-06-08', '2026-07-14', '2026-09-01'],
+ 'TIINDIA': ['2026-03-11', '2026-05-05', '2026-06-08', '2026-06-25', '2026-09-01'],
+ 'GRASIM': ['2026-06-03', '2026-08-25', '2026-09-01'],
+ '360ONE': ['2026-02-27', '2026-05-29', '2026-06-25', '2026-07-09', '2026-07-14', '2026-07-22', '2026-08-18', '2026-08-31'],
+ 'ASTRAL': ['2026-03-04', '2026-04-23', '2026-05-13', '2026-05-19', '2026-06-08', '2026-06-25', '2026-08-31'],
+ 'SIEMENS': ['2026-03-05', '2026-05-08', '2026-06-01', '2026-06-24', '2026-08-19', '2026-08-31'],
+ 'PERSISTENT': ['2026-04-23', '2026-05-13', '2026-06-09', '2026-08-12', '2026-08-31'],
+ 'MAZDOCK': ['2026-03-23', '2026-05-05', '2026-07-09', '2026-08-31'],
+ 'ADANIGREEN': ['2026-02-27', '2026-05-15', '2026-08-31'],
+ 'NAM-INDIA': ['2026-02-27', '2026-05-13', '2026-07-08', '2026-08-13', '2026-08-18', '2026-08-28'],
+ 'LTF': ['2026-03-02', '2026-05-12', '2026-07-15', '2026-08-07', '2026-08-19', '2026-08-28'],
+ 'AUBANK': ['2026-02-24', '2026-05-05', '2026-07-09', '2026-07-14', '2026-08-28'],
+ 'PNBHOUSING': ['2026-03-04', '2026-05-12', '2026-07-21', '2026-08-28'],
+ 'NATIONALUM': ['2026-03-19', '2026-04-30', '2026-06-05', '2026-08-28'],
+ 'BDL': ['2026-03-20', '2026-05-12', '2026-07-09', '2026-08-28'],
+ 'KFINTECH': ['2026-02-27', '2026-03-23', '2026-04-30', '2026-07-07', '2026-07-20', '2026-08-10', '2026-08-27'],
+ 'ICICIGI': ['2026-03-02', '2026-04-28', '2026-05-21', '2026-06-01', '2026-06-30', '2026-07-16', '2026-08-27'],
+ 'LT': ['2026-03-02', '2026-05-06', '2026-06-04', '2026-07-01', '2026-08-27'],
+ 'HINDALCO': ['2026-03-16', '2026-05-06', '2026-06-05', '2026-08-21', '2026-08-27'],
+ 'JUBLFOOD': ['2026-02-25', '2026-04-07', '2026-05-11', '2026-05-21', '2026-07-17', '2026-08-26'],
+ 'MOTHERSON': ['2026-03-02', '2026-05-04', '2026-05-14', '2026-06-10', '2026-08-25'],
+ 'NAUKRI': ['2026-04-28', '2026-06-12', '2026-06-29', '2026-07-23', '2026-07-31', '2026-08-05', '2026-08-24'],
+ 'HAL': ['2026-02-23', '2026-03-20', '2026-05-15', '2026-07-09', '2026-08-24'],
+ 'KEI': ['2026-03-09', '2026-05-13', '2026-06-01', '2026-06-25', '2026-08-24'],
+ 'TATAELXSI': ['2026-04-24', '2026-05-12', '2026-06-10', '2026-07-15', '2026-08-24'],
+ 'UNIONBANK': ['2026-03-04', '2026-04-24', '2026-07-03', '2026-08-24'],
+ 'ANANDRATHI': ['2026-03-13', '2026-04-27', '2026-07-17', '2026-08-24'],
+ 'UNOMINDA': ['2026-02-24', '2026-03-02', '2026-05-05', '2026-05-15', '2026-05-29', '2026-07-01', '2026-07-22', '2026-08-20'],
+ 'ASHOKLEY': ['2026-04-30', '2026-05-12', '2026-06-02', '2026-07-10', '2026-08-20'],
+ 'INDIANB': ['2026-03-05', '2026-04-23', '2026-06-25', '2026-08-20'],
+ 'HAVELLS': ['2026-03-02', '2026-04-30', '2026-05-11', '2026-05-29', '2026-07-16', '2026-08-13', '2026-08-19'],
+ 'MPHASIS': ['2026-03-16', '2026-04-24', '2026-06-19', '2026-07-23', '2026-07-31', '2026-08-19'],
+ 'PIDILITIND': ['2026-03-04', '2026-06-01', '2026-07-03', '2026-07-08', '2026-08-19'],
+ 'KPITTECH': ['2026-05-12', '2026-06-09', '2026-08-19'],
+ 'SBIN': ['2026-02-26', '2026-05-05', '2026-05-08', '2026-07-08', '2026-07-22', '2026-08-18'],
+ 'SHRIRAMFIN': ['2026-02-27', '2026-04-28', '2026-05-12', '2026-06-02', '2026-07-09', '2026-08-18'],
+ 'HYUNDAI': ['2026-03-02', '2026-05-19', '2026-06-24', '2026-07-08', '2026-07-21', '2026-08-18'],
+ 'EICHERMOT': ['2026-03-02', '2026-05-13', '2026-06-05', '2026-06-30', '2026-08-18'],
+ 'CHOLAFIN': ['2026-03-04', '2026-05-13', '2026-07-10', '2026-08-18'],
+ 'LTM': ['2026-04-27', '2026-06-10', '2026-06-22', '2026-08-18'],
+ 'CONCOR': ['2026-05-13', '2026-07-09', '2026-08-07', '2026-08-18'],
+ 'M&M': ['2026-03-30', '2026-04-27', '2026-04-30', '2026-05-15', '2026-07-14', '2026-08-17'],
+ 'TITAN': ['2026-03-04', '2026-04-28', '2026-06-11', '2026-08-17'],
+ 'INFY': ['2026-04-23', '2026-06-11', '2026-08-17'],
+ 'WIPRO': ['2026-04-30', '2026-06-08', '2026-08-17'],
+ 'TVSMOTOR': ['2026-03-02', '2026-04-24', '2026-05-13', '2026-06-08', '2026-06-11', '2026-07-16', '2026-08-14'],
+ 'NIFTY': ['2026-02-24', '2026-05-11', '2026-06-01', '2026-07-14', '2026-08-13'],
+ 'HCLTECH': ['2026-04-22', '2026-06-11', '2026-06-25', '2026-08-13'],
+ 'BAJAJFINSV': ['2026-02-27', '2026-04-30', '2026-05-13', '2026-06-02', '2026-07-16', '2026-08-12'],
+ 'TCS': ['2026-03-11', '2026-03-19', '2026-04-27', '2026-06-05', '2026-06-23', '2026-08-12'],
+ 'BAJFINANCE': ['2026-03-02', '2026-05-12', '2026-07-14', '2026-07-24', '2026-08-11'],
+ 'IEX': ['2026-03-04', '2026-03-16', '2026-03-23', '2026-03-30', '2026-04-23', '2026-05-13', '2026-07-08', '2026-08-10'],
+ 'TECHM': ['2026-04-24', '2026-05-12', '2026-05-21', '2026-06-11', '2026-08-10'],
+ 'IDFCFIRSTB': ['2026-05-13', '2026-07-01', '2026-08-07'],
+ 'FEDERALBNK': ['2026-03-02', '2026-04-30', '2026-05-11', '2026-07-06', '2026-08-05'],
+ 'GODREJCP': ['2026-03-02', '2026-05-04', '2026-05-07', '2026-06-02', '2026-07-16', '2026-08-04'],
+ 'KALYANKJIL': ['2026-03-09', '2026-04-22', '2026-07-07', '2026-08-04'],
+ 'INDUSINDBK': ['2026-03-04', '2026-05-13', '2026-05-29', '2026-06-23', '2026-07-24'],
+ 'SHREECEM': ['2026-02-27', '2026-04-30', '2026-05-13', '2026-06-03', '2026-07-23'],
+ 'GODREJPROP': ['2026-03-02', '2026-05-11', '2026-07-22'],
+ 'PGEL': ['2026-03-04', '2026-05-07', '2026-07-22'],
+ 'DABUR': ['2026-03-04', '2026-05-19', '2026-07-16']}
+
+    def _parse_macd_svg(svg_bytes):
+        root = ET.fromstring(svg_bytes)
+        ns = {"s": "http://www.w3.org/2000/svg"}
+        header_dates = {}
+        for element in root.findall(".//s:text", ns):
+            x = float(element.attrib.get("x", 0)); y = float(element.attrib.get("y", 0))
+            label = "".join(element.itertext()).strip()
+            if y == 18 and re.fullmatch(r"\d{2}-[A-Za-z]{3}", label):
+                header_dates[x] = datetime.strptime(label + " 2026", "%d-%b %Y").date()
+        stock_rows = []
+        for element in root.findall(".//s:text", ns):
+            x = float(element.attrib.get("x", 0)); y = float(element.attrib.get("y", 0))
+            label = "".join(element.itertext()).strip()
+            if x == 12 and y > 40 and label and label != "Stock":
+                stock_rows.append((y, label))
+        markers = []
+        for element in root.findall(".//s:rect", ns):
+            a = element.attrib
+            try:
+                x = float(a.get("x", -1)); y = float(a.get("y", -1))
+                w = float(a.get("width", 0)); h = float(a.get("height", 0))
+            except (TypeError, ValueError):
+                continue
+            if w == 48 and h == 20 and a.get("fill", "").upper() == "#96D04E":
+                markers.append((x, y))
+        output = {}
+        for row_y, stock in stock_rows:
+            x_centres = [x + 24 for x, marker_y in markers if abs(marker_y - (row_y - 10)) < 0.1]
+            dates = sorted({header_dates[x] for x in x_centres if x in header_dates})
+            output[stock] = dates
+        return output
+
+    app_dir = Path(__file__).resolve().parent
+    crossover_path = app_dir / "Backtest MACD CrossOver - Stocks timeline.svg"
+    crossdown_path = app_dir / "Backtest MACD CrossDown - Stocks timeline.svg"
+    crossover_upload = st.file_uploader("Upload MACD CrossOver timeline SVG (optional)", type=["svg"], key="macd_crossover_svg_upload")
+    crossdown_upload = st.file_uploader("Upload MACD CrossDown timeline SVG (optional)", type=["svg"], key="macd_crossdown_svg_upload")
+
+    def _normalise_dates(data):
+        return {stock: [datetime.strptime(d, "%Y-%m-%d").date() if isinstance(d, str) else d for d in dates] for stock, dates in data.items()}
+
+    crossover_data = {}
+    crossdown_data = {}
+    crossover_source = "Embedded crossover SVG data"
+    crossdown_source = "Embedded cross-down SVG data"
+    try:
+        if crossover_upload is not None:
+            crossover_data = _parse_macd_svg(crossover_upload.getvalue())
+            crossover_source = "Uploaded CrossOver SVG"
+        elif crossover_path.exists():
+            crossover_data = _parse_macd_svg(crossover_path.read_bytes())
+            crossover_source = "Application-folder CrossOver SVG"
+        else:
+            crossover_data = _normalise_dates(_macd_crossover_fallback)
+        if crossdown_upload is not None:
+            crossdown_data = _parse_macd_svg(crossdown_upload.getvalue())
+            crossdown_source = "Uploaded CrossDown SVG"
+        elif crossdown_path.exists():
+            crossdown_data = _parse_macd_svg(crossdown_path.read_bytes())
+            crossdown_source = "Application-folder CrossDown SVG"
+        else:
+            crossdown_data = _normalise_dates(_macd_crossdown_fallback)
+    except Exception as exc:
+        st.warning(f"Could not parse one of the supplied SVG timelines. Embedded audit data will be used where needed. Details: {exc}")
+        if not crossover_data:
+            crossover_data = _normalise_dates(_macd_crossover_fallback)
+            crossover_source = "Embedded crossover data (fallback)"
+        if not crossdown_data:
+            crossdown_data = _normalise_dates(_macd_crossdown_fallback)
+            crossdown_source = "Embedded cross-down data (fallback)"
+
+    crossover_events = []
+    for stock, dates in crossover_data.items():
+        for signal_date in sorted(dates):
+            crossover_events.append({"Stock Name": stock, "Signal Type": "Cross Over", "Signal Date": signal_date, "Day": signal_date.strftime("%A"), "Month": signal_date.strftime("%b %Y")})
+    crossdown_events = []
+    for stock, dates in crossdown_data.items():
+        for signal_date in sorted(dates):
+            crossdown_events.append({"Stock Name": stock, "Signal Type": "Cross Down", "Signal Date": signal_date, "Day": signal_date.strftime("%A"), "Month": signal_date.strftime("%b %Y")})
+    events_df = pd.DataFrame(crossover_events + crossdown_events)
+    if events_df.empty:
+        st.warning("No crossover or cross-down markers were found in the supplied SVG timelines.")
+        st.stop()
+    events_df["Signal Date"] = pd.to_datetime(events_df["Signal Date"])
+    all_stocks = sorted(set(crossover_data) | set(crossdown_data))
+    summary_records = []
+    for stock in all_stocks:
+        up_dates = sorted(crossover_data.get(stock, []))
+        down_dates = sorted(crossdown_data.get(stock, []))
+        summary_records.append({"Stock Name": stock, "Total Crossovers": len(up_dates), "Total Cross Downs": len(down_dates), "Total Signals": len(up_dates) + len(down_dates)})
+    summary_df = pd.DataFrame(summary_records).sort_values(["Total Signals", "Stock Name"], ascending=[False, True])
+    total_up = len(crossover_events); total_down = len(crossdown_events)
+    total_stocks = len(all_stocks)
+    top_stock = summary_df.iloc[0]
+    busiest_date = events_df["Signal Date"].value_counts().idxmax()
+    k1, k2, k3, k4 = st.columns(4, gap="medium")
+    for col, label, value, sub in [
+        (k1, "Unique stocks", f"{total_stocks:,}", "Symbols across both timelines"),
+        (k2, "CrossOver events", f"{total_up:,}", "Bullish crossover markers"),
+        (k3, "CrossDown events", f"{total_down:,}", "Bearish cross-down markers"),
+        (k4, "Most active stock", str(top_stock["Stock Name"]), f"{int(top_stock['Total Signals'])} combined signals"),
+    ]:
+        col.markdown(f'<div class="macd-kpi"><div class="macd-kpi-label">{label}</div><div class="macd-kpi-value">{value}</div><div class="macd-muted">{sub}</div></div>', unsafe_allow_html=True)
+    st.caption(f"Sources: {crossover_source} · {crossdown_source}. SVG labels contain day/month only, so dates are interpreted as 2026. Each stock pairs the 1st CrossOver with the 1st CrossDown, the 2nd with the 2nd, and so on; unmatched signals remain clearly flagged.")
+
+    st.markdown("### Find a stock or signal date")
+    f1, f2, f3 = st.columns([2, 1, 1])
+    with f1:
+        search_text = st.text_input("Search stock symbol", placeholder="e.g. NTPC, BHEL, HDFCBANK", key="macd_stock_search_v2").strip().upper()
+    with f2:
+        minimum_count = st.selectbox("Minimum total signals", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20], index=0, key="macd_min_signals_v2")
+    with f3:
+        view_mode = st.selectbox("Display", ["Combined stock cards", "Every signal event"], key="macd_view_mode_v2")
+    filtered_summary = summary_df[summary_df["Total Signals"] >= minimum_count].copy()
+    if search_text:
+        filtered_summary = filtered_summary[filtered_summary["Stock Name"].str.upper().str.contains(re.escape(search_text), na=False)]
+
+    if view_mode == "Every signal event":
+        filtered_events = events_df[events_df["Stock Name"].isin(filtered_summary["Stock Name"])].copy()
+        filtered_events = filtered_events.sort_values(["Signal Date", "Stock Name", "Signal Type"])
+        filtered_events["Signal Date"] = filtered_events["Signal Date"].dt.strftime("%d %b %Y")
+        st.dataframe(filtered_events, use_container_width=True, hide_index=True, height=560,
+                     column_config={"Stock Name": st.column_config.TextColumn("Stock Name", width="medium"),
+                                    "Signal Type": st.column_config.TextColumn("Signal Type", width="medium"),
+                                    "Signal Date": st.column_config.TextColumn("Signal Date", width="medium"),
+                                    "Day": st.column_config.TextColumn("Weekday", width="small"),
+                                    "Month": st.column_config.TextColumn("Month", width="medium")})
+    else:
+        st.caption(f"Showing {len(filtered_summary):,} of {len(summary_df):,} stocks. Select any date to fetch its OHLC details, or fetch every event in one pass.")
+
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def _macd_fetch_symbol_history(symbol, date_values):
+            """Fetch daily history for one symbol covering all of its MACD signal dates."""
+            import yfinance as yf
+            import numpy as np
+            parsed_dates = [pd.Timestamp(x).normalize() for x in date_values]
+            first_date, last_date = min(parsed_dates), max(parsed_dates)
+            start = (first_date - pd.Timedelta(days=20)).date().isoformat()
+            end = (last_date + pd.Timedelta(days=3)).date().isoformat()
+            failures = []
+            for suffix in (".NS", ".BO"):
+                ticker = f"{symbol}{suffix}"
+                try:
+                    prices = yf.download(ticker, start=start, end=end, interval="1d", auto_adjust=False, progress=False, threads=False)
+                    if prices is None or prices.empty:
+                        failures.append(f"No history for {ticker}")
+                        continue
+                    if isinstance(prices.columns, pd.MultiIndex):
+                        prices.columns = prices.columns.get_level_values(0)
+                    prices = prices.reset_index()
+                    date_col = "Date" if "Date" in prices.columns else prices.columns[0]
+                    prices[date_col] = pd.to_datetime(prices[date_col]).dt.tz_localize(None).dt.normalize()
+                    prices = prices.sort_values(date_col).drop_duplicates(date_col).reset_index(drop=True)
+                    rows = []
+                    for signal_date in parsed_dates:
+                        matches = prices.index[prices[date_col] == signal_date]
+                        if len(matches) == 0:
+                            rows.append({"Signal_Date": signal_date.strftime("%Y-%m-%d"), "Yahoo_Ticker": ticker, "OHLC_Status": "NO_CANDLE_FOR_SIGNAL_DATE"})
+                            continue
+                        pos = int(matches[0]); current = prices.iloc[pos]
+                        previous = prices.iloc[pos - 1] if pos > 0 else None
+                        def num(row, field):
+                            if row is None: return np.nan
+                            return pd.to_numeric(row.get(field), errors="coerce")
+                        def candle_values(prefix, candle):
+                            return {f"{prefix}{field}": num(candle, field) for field in ("Open", "High", "Low", "Close", "Volume")}
+                        record = {"Signal_Date": signal_date.strftime("%Y-%m-%d"), "Yahoo_Ticker": ticker,
+                                  "Previous_Trading_Date": previous[date_col].strftime("%Y-%m-%d") if previous is not None else None}
+                        record.update(candle_values("", current)); record.update(candle_values("Previous_", previous))
+                        close, prev_close, open_price = record.get("Close"), record.get("Previous_Close"), record.get("Open")
+                        record["Daily_Change_Pct"] = round((close / prev_close - 1) * 100, 4) if pd.notna(close) and pd.notna(prev_close) and prev_close != 0 else np.nan
+                        record["Intraday_Change_Pct"] = round((close / open_price - 1) * 100, 4) if pd.notna(close) and pd.notna(open_price) and open_price != 0 else np.nan
+                        record["OHLC_Status"] = "OK" if all(pd.notna(record.get(k)) for k in ("Open", "High", "Low", "Close")) else "INCOMPLETE_OHLC"
+                        rows.append(record)
+                    return rows, ticker, None
+                except Exception as exc:
+                    failures.append(f"{ticker}: {type(exc).__name__}: {exc}")
+            return [{"Signal_Date": d.strftime("%Y-%m-%d"), "Yahoo_Ticker": "", "OHLC_Status": "FETCH_FAILED", "Fetch_Error": " | ".join(failures)} for d in parsed_dates], "", " | ".join(failures)
+
+        @st.dialog("📊 MACD signal — historical OHLC analysis", width="large")
+        def _show_macd_ohlc(stock, signal_type, date_iso):
+            st.markdown(f"### {stock}")
+            st.caption(f"{signal_type} signal · {pd.Timestamp(date_iso).strftime('%A, %d %B %Y')}")
+            with st.spinner(f"Fetching historical prices for {stock}…"):
+                rows, ticker, error = _macd_fetch_symbol_history(stock, [date_iso])
+            if not rows or rows[0].get("OHLC_Status") not in ("OK", "INCOMPLETE_OHLC"):
+                st.warning("Historical OHLC data could not be retrieved for this event date.")
+                if error or (rows and rows[0].get("Fetch_Error")):
+                    st.caption(error or rows[0].get("Fetch_Error"))
+                st.caption("The source timeline date is preserved; no prices have been fabricated.")
+                return
+            r = rows[0]
+            st.markdown(f"**Source ticker:** `{ticker}` · **Trading date:** {pd.Timestamp(date_iso).strftime('%d %b %Y')}")
+            st.markdown("#### Selected signal day")
+            c1, c2, c3, c4 = st.columns(4)
+            for c, label, key in [(c1,"Open","Open"),(c2,"High","High"),(c3,"Low","Low"),(c4,"Close","Close")]:
+                value = r.get(key)
+                c.metric(label, f"₹{float(value):,.2f}" if pd.notna(value) else "—")
+            c5, c6 = st.columns(2)
+            daily_pct = r.get("Daily_Change_Pct"); intraday_pct = r.get("Intraday_Change_Pct")
+            c5.metric("Daily change vs previous close", f"{float(daily_pct):+.2f}%" if pd.notna(daily_pct) else "—")
+            c6.metric("Intraday change vs open", f"{float(intraday_pct):+.2f}%" if pd.notna(intraday_pct) else "—")
+            st.markdown(f"#### Previous trading day · {r.get('Previous_Trading_Date') or 'Not available'}")
+            p1, p2, p3, p4 = st.columns(4)
+            for c, label, key in [(p1,"Open","Previous_Open"),(p2,"High","Previous_High"),(p3,"Low","Previous_Low"),(p4,"Close","Previous_Close")]:
+                value = r.get(key)
+                c.metric(label, f"₹{float(value):,.2f}" if pd.notna(value) else "—")
+            st.caption("Daily change = (signal-day close ÷ previous trading-day close − 1) × 100. Data is fetched from Yahoo Finance and may be unavailable for some tickers.")
+
+        bulk_col1, bulk_col2 = st.columns([1, 2], gap="medium")
+        with bulk_col1:
+            fetch_all_clicked = st.button("⬇ Fetch OHLC for all MACD events", key="macd_fetch_all_ohlc", type="primary", use_container_width=True)
+        with bulk_col2:
+            st.caption("Fetches historical daily candles for every CrossOver and CrossDown date, using the same Yahoo Finance lookup pattern as Top Gainer Intelligence.")
+
+        if fetch_all_clicked:
+            unique_stock_dates = {}
+            for stock in all_stocks:
+                all_dates_for_stock = sorted(set(crossover_data.get(stock, []) + crossdown_data.get(stock, [])))
+                if all_dates_for_stock:
+                    unique_stock_dates[stock] = all_dates_for_stock
+            progress = st.progress(0, text="Preparing MACD event OHLC retrieval…")
+            fetched_rows = []
+            stock_items = list(unique_stock_dates.items())
+            for n, (stock_name, dates_for_stock) in enumerate(stock_items, 1):
+                try:
+                    stock_rows, _, _ = _macd_fetch_symbol_history(stock_name, [d.isoformat() for d in dates_for_stock])
+                except Exception as exc:
+                    stock_rows = [{"Signal_Date": d.isoformat(), "OHLC_Status": "FETCH_FAILED", "Fetch_Error": str(exc)} for d in dates_for_stock]
+                for result_row in stock_rows:
+                    event_date = pd.Timestamp(result_row["Signal_Date"]).date()
+                    result_row["Stock Name"] = stock_name
+                    result_row["Signal Type"] = "Cross Over" if event_date in crossover_data.get(stock_name, []) else "Cross Down"
+                    fetched_rows.append(result_row)
+                progress.progress(n / max(len(stock_items), 1), text=f"Fetching OHLC: {stock_name} ({n}/{len(stock_items)})")
+            progress.empty()
+            macd_ohlc_df = pd.DataFrame(fetched_rows)
+            if not macd_ohlc_df.empty:
+                preferred_cols = ["Stock Name", "Signal Type", "Signal_Date", "Yahoo_Ticker", "Open", "High", "Low", "Close", "Volume", "Previous_Trading_Date", "Previous_Open", "Previous_High", "Previous_Low", "Previous_Close", "Daily_Change_Pct", "Intraday_Change_Pct", "OHLC_Status", "Fetch_Error"]
+                macd_ohlc_df = macd_ohlc_df[[c for c in preferred_cols if c in macd_ohlc_df.columns]]
+                st.session_state["macd_ohlc_all_events"] = macd_ohlc_df
+
+        if "macd_ohlc_all_events" in st.session_state:
+            bulk_df = st.session_state["macd_ohlc_all_events"]
+            ok_count = int(bulk_df.get("OHLC_Status", pd.Series(dtype=str)).isin(["OK", "INCOMPLETE_OHLC"]).sum())
+            st.success(f"Bulk retrieval complete: {ok_count:,} of {len(bulk_df):,} event dates returned an OHLC candle.")
+            st.dataframe(bulk_df, use_container_width=True, hide_index=True, height=440)
+            st.download_button("Download fetched MACD OHLC CSV", bulk_df.to_csv(index=False).encode("utf-8-sig"), file_name="MACD_CrossOver_CrossDown_OHLC.csv", mime="text/csv", use_container_width=False)
+
+        @st.dialog("📊 Trade cycle — Start and End OHLC", width="large")
+        def _show_trade_cycle_ohlc(stock_name, trade_number, start_iso, end_iso, trade_status):
+            st.markdown(f"### {stock_name} · Trade #{trade_number}")
+            st.caption(f"Trade status: {trade_status}")
+
+            def render_candle_section(section_title, date_iso):
+                st.markdown(f"#### {section_title}")
+                if not date_iso:
+                    st.info("No date assigned for this side of the trade cycle.")
+                    return
+                st.caption(pd.Timestamp(date_iso).strftime("%A, %d %B %Y"))
+                with st.spinner(f"Fetching OHLC for {stock_name} on {date_iso}…"):
+                    rows, ticker, error = _macd_fetch_symbol_history(stock_name, [date_iso])
+                if not rows or rows[0].get("OHLC_Status") not in ("OK", "INCOMPLETE_OHLC"):
+                    st.warning("OHLC data could not be retrieved for this date.")
+                    detail = error or (rows[0].get("Fetch_Error") if rows else None)
+                    if detail:
+                        st.caption(str(detail))
+                    st.caption("No price values are estimated or fabricated.")
+                    return
+                r = rows[0]
+                st.caption(f"Source ticker: `{ticker}` · Data date: {pd.Timestamp(date_iso).strftime('%d %b %Y')}")
+                a, b, c, d = st.columns(4)
+                for col, label, key in [(a, "Open", "Open"), (b, "High", "High"), (c, "Low", "Low"), (d, "Close", "Close")]:
+                    value = r.get(key)
+                    col.metric(label, f"₹{float(value):,.2f}" if pd.notna(value) else "N/A")
+            render_candle_section("🟢 Start Date — CrossOver", start_iso)
+            st.divider()
+            render_candle_section("🔴 End Date — CrossDown", end_iso)
+
+        for start_idx in range(0, len(filtered_summary), 2):
+            card_cols = st.columns(2, gap="medium")
+            for offset, col in enumerate(card_cols):
+                idx = start_idx + offset
+                if idx >= len(filtered_summary):
+                    continue
+                row = filtered_summary.iloc[idx]
+                stock = str(row["Stock Name"])
+                up_dates = sorted(crossover_data.get(stock, []))
+                down_dates = sorted(crossdown_data.get(stock, []))
+                with col:
+                    # Native bordered container keeps summary and trade cycles inside one shared panel.
+                    with st.container(border=True):
+                        st.markdown(f"<div style='font-size:16px;font-weight:850;color:#F4F8FF;margin-bottom:10px'>{stock}</div>", unsafe_allow_html=True)
+                        count_cols = st.columns(3, gap="small")
+                        count_items = [
+                            ("TOTAL CROSS OVER SIGNALS", len(up_dates), "#39E6B2"),
+                            ("TOTAL CROSS DOWN SIGNALS", len(down_dates), "#FF718A"),
+                            ("TOTAL SIGNALS", int(row["Total Signals"]), "#F4F8FF"),
+                        ]
+                        for count_col, (label, value, color) in zip(count_cols, count_items):
+                            count_col.markdown(
+                                f"<div style='text-align:center;padding:4px 0 9px;min-height:54px;'>"
+                                f"<div style='font-size:10px;line-height:1.35;color:#9FB6CB;letter-spacing:.2px'>{label}</div>"
+                                f"<div style='font-size:21px;font-weight:900;line-height:1.4;color:{color}'>{value}</div></div>",
+                                unsafe_allow_html=True,
+                            )
+                        st.markdown("<div style='border-top:1px solid #234762;margin:2px 0 10px'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='font-size:12px;font-weight:850;color:#DDEBFF;margin-bottom:8px'>⇄ TRADE CYCLES · CLICK A TRADE FOR START / END OHLC</div>", unsafe_allow_html=True)
+
+                        cycle_count = max(len(up_dates), len(down_dates))
+                        if cycle_count:
+                            cycle_records = []
+                            for cycle_idx in range(cycle_count):
+                                start_date = up_dates[cycle_idx] if cycle_idx < len(up_dates) else None
+                                end_date = down_dates[cycle_idx] if cycle_idx < len(down_dates) else None
+                                if start_date is not None and end_date is not None:
+                                    if start_date < end_date:
+                                        cycle_status = "Closed"
+                                    else:
+                                        start_date = None
+                                        end_date = down_dates[0] if down_dates else None
+                                        cycle_status = "Start blank — invalid order; first CrossDown used"
+                                elif start_date is not None:
+                                    cycle_status = "Open trade — no matching CrossDown yet"
+                                else:
+                                    cycle_status = "Unmatched CrossDown — no matching CrossOver"
+                                cycle_records.append({
+                                    "Trade #": cycle_idx + 1,
+                                    "Start ISO": start_date.isoformat() if start_date else "",
+                                    "End ISO": end_date.isoformat() if end_date else "",
+                                    "Trade Starting Date": start_date.strftime("%d %b %Y") if start_date else "—",
+                                    "Trade Ending Date": end_date.strftime("%d %b %Y") if end_date else "—",
+                                    "Status": cycle_status,
+                                })
+
+                            # Fetch each stock's signal-date candles once, then use closing prices
+                            # to show the start-to-end close return on every trade card.
+                            trade_dates = sorted({
+                                d for rec in cycle_records for d in (rec["Start ISO"], rec["End ISO"]) if d
+                            })
+                            close_by_date = {}
+                            if trade_dates:
+                                try:
+                                    price_rows, _price_ticker, _price_error = _macd_fetch_symbol_history(stock, trade_dates)
+                                    for price_row in price_rows or []:
+                                        close_value = pd.to_numeric(price_row.get("Close"), errors="coerce")
+                                        if price_row.get("Signal_Date") and pd.notna(close_value):
+                                            close_by_date[str(price_row["Signal_Date"])] = float(close_value)
+                                except Exception:
+                                    # Price data may be unavailable; cards will clearly show N/A.
+                                    close_by_date = {}
+
+                            for batch_start in range(0, len(cycle_records), 2):
+                                trade_cols = st.columns(2, gap="small")
+                                for trade_offset, trade_col in enumerate(trade_cols):
+                                    rec_idx = batch_start + trade_offset
+                                    if rec_idx >= len(cycle_records):
+                                        continue
+                                    rec = cycle_records[rec_idx]
+                                    raw_status = rec["Status"]
+                                    if raw_status == "Closed":
+                                        status_label, status_color, status_bg, status_border = "Closed Trade", "#FF718A", "rgba(255,113,138,.12)", "rgba(255,113,138,.42)"
+                                    elif raw_status.startswith("Open trade"):
+                                        status_label, status_color, status_bg, status_border = "Open Trade", "#39E6B2", "rgba(57,230,178,.12)", "rgba(57,230,178,.42)"
+                                    else:
+                                        status_label, status_color, status_bg, status_border = "Needs Review", "#FFC66D", "rgba(255,198,109,.10)", "rgba(255,198,109,.40)"
+                                    with trade_col:
+                                        # The entire trade card is one clickable Streamlit button.
+                                        # Use a navy card background with high-contrast white text.
+                                        trade_key = f"macd_trade_cycle_{re.sub(r'[^A-Za-z0-9]+', '_', stock)}_{rec['Trade #']}"
+                                        status_marker = "🔴" if status_label == "Closed Trade" else ("🟢" if status_label == "Open Trade" else "🟠")
+                                        start_close = close_by_date.get(rec["Start ISO"]) if rec["Start ISO"] else None
+                                        end_close = close_by_date.get(rec["End ISO"]) if rec["End ISO"] else None
+                                        if start_close is not None and end_close is not None and start_close != 0:
+                                            close_change_pct = (end_close / start_close - 1.0) * 100.0
+                                            close_change_text = f"CLOSE CHANGE: {close_change_pct:+.2f}%"
+                                            close_change_color = "#FF718A" if close_change_pct < 0 else "#39E6B2"
+                                        else:
+                                            close_change_pct = None
+                                            close_change_text = "CLOSE CHANGE: N/A"
+                                            close_change_color = "#A9BDD0"
+                                        trade_label = (
+                                            f"TRADE #{rec['Trade #']}\n"
+                                            f"START DATE: {rec['Trade Starting Date']}\n"
+                                            f"END DATE: {rec['Trade Ending Date']}\n"
+                                            f"{status_marker}  {status_label}"
+                                        )
+                                        st.markdown(
+                                            f"<style>div.st-key-{trade_key} button {{"
+                                            "background:#0B2740 !important; color:#FFFFFF !important; "
+                                            "border:1px solid #28516F !important; border-radius:12px !important; "
+                                            "min-height:126px !important; height:auto !important; padding:12px 15px 18px !important; "
+                                            "box-shadow:0 3px 9px rgba(0,0,0,.18) !important; "
+                                            "}} div.st-key-" + trade_key + " button p {"
+                                            "color:#FFFFFF !important; font-weight:650 !important; "
+                                            "font-size:13px !important; line-height:1.55 !important; "
+                                            "white-space:pre-wrap !important; text-align:left !important; "
+                                            "}} div.st-key-" + trade_key + " button:hover {"
+                                            "border-color:#39E6B2 !important; background:#123652 !important; "
+                                            "transform:translateY(-1px); }} </style>",
+                                            unsafe_allow_html=True,
+                                        )
+                                        clicked = st.button(trade_label, key=trade_key, use_container_width=True)
+                                        st.markdown(
+                                            f"<div style='margin-top:-9px;margin-bottom:7px;padding:0 14px;color:{close_change_color};font-size:12px;font-weight:850;pointer-events:none'>{close_change_text}</div>",
+                                            unsafe_allow_html=True,
+                                        )
+                                        if clicked:
+                                            _show_trade_cycle_ohlc(stock, rec["Trade #"], rec["Start ISO"], rec["End ISO"], status_label)
+                        else:
+                            st.caption("No complete or partial trade cycles found for this stock.")
+
+
+    st.markdown("### MACD signal frequency overview")
+    chart_tab1, chart_tab2 = st.columns(2, gap="large")
+    with chart_tab1:
+        top_n = summary_df.head(15).sort_values("Total Signals")
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=top_n["Total Crossovers"], y=top_n["Stock Name"], orientation="h", name="CrossOver", marker_color="#20D9AA"))
+        fig.add_trace(go.Bar(x=top_n["Total Cross Downs"], y=top_n["Stock Name"], orientation="h", name="CrossDown", marker_color="#FF8197"))
+        fig.update_layout(title="Top stocks: CrossOver vs CrossDown", barmode="group", height=500, margin=dict(l=20,r=25,t=55,b=25), paper_bgcolor="#06182B", plot_bgcolor="#06182B", font=dict(color="#DCEBFA"), xaxis=dict(title="Signal count", gridcolor="#173A55"), yaxis=dict(title="", gridcolor="rgba(0,0,0,0)"), legend=dict(orientation="h", y=1.08, x=0))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    with chart_tab2:
+        daily = events_df.groupby(["Signal Date", "Signal Type"]).size().reset_index(name="Stocks")
+        fig2 = go.Figure()
+        for signal_type, color in [("Cross Over", "#37D9C1"), ("Cross Down", "#FF8197")]:
+            part = daily[daily["Signal Type"] == signal_type]
+            fig2.add_trace(go.Scatter(x=part["Signal Date"], y=part["Stocks"], mode="lines+markers", name=signal_type, line=dict(color=color, width=2), marker=dict(size=5)))
+        fig2.update_layout(title="Signal activity over time", height=500, margin=dict(l=20,r=20,t=55,b=25), paper_bgcolor="#06182B", plot_bgcolor="#06182B", font=dict(color="#DCEBFA"), xaxis=dict(title="Signal date", gridcolor="#173A55"), yaxis=dict(title="Number of stocks", gridcolor="#173A55"), legend=dict(orientation="h", y=1.08, x=0))
+        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
     st.stop()
 
 if page in ["Dashboard", "Watchlist", "Reports", "Settings"]:
